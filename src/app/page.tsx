@@ -1,65 +1,119 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+import { useState } from "react";
+import { useTRPC } from "@/trpc/client";
+import { useMutation } from "@tanstack/react-query";
+import { toast } from "sonner";
+
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Card } from "@/components/ui/card";
+
+const Page = () => {
+    const trpc = useTRPC();
+
+    const [repoUrl, setRepoUrl] = useState("");
+    const [errorDescription, setErrorDescription] = useState("");
+
+    const invokeTestAgent = useMutation(
+        trpc.testAgent.run.mutationOptions({
+            onSuccess: () => {
+                toast.success("Test agent started. Tests are being generated.");
+            },
+            onError: (err) => {
+                toast.error(err.message ?? "Failed to start test agent");
+            },
+        })
+    );
+
+    const handleRun = () => {
+        if (!repoUrl || !errorDescription) {
+            toast.error("Please provide both repo URL and error description");
+            return;
+        }
+
+        invokeTestAgent.mutate({
+            repoUrl,
+            value: errorDescription,
+        });
+    };
+
+    return (
+        <div className="min-h-screen bg-gradient-to-b from-sky-100 via-blue-50 to-orange-50">
+            {/* Navigation */}
+            <nav className="flex items-center justify-between px-6 py-6 max-w-6xl mx-auto">
+                <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-red-500 rounded-lg" />
+                    <span className="text-xl font-bold text-gray-900">CodeSentinel</span>
+                </div>
+                <div className="flex items-center gap-6">
+                    <Button variant="ghost" className="text-gray-700 hover:text-gray-900">
+                        Pricing
+                    </Button>
+                    <Button variant="ghost" className="text-gray-700 hover:text-gray-900">
+                        Enterprise
+                    </Button>
+                    <Button className="bg-lime-300 text-gray-900 hover:bg-lime-400 rounded-full px-6">
+                        Start Building
+                    </Button>
+                </div>
+            </nav>
+
+            {/* Hero Content */}
+            <div className="max-w-4xl mx-auto px-6 pt-24 pb-16 text-center space-y-8">
+                <h1 className="text-5xl md:text-6xl font-bold text-gray-900 leading-tight">
+                    AI that writes tests to reproduce your bugs
+                </h1>
+
+                <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+                    Describe a bug in your GitHub repo. CodeSentinel analyzes your codebase and automatically generates test files that prove the issue exists.
+                </p>
+
+                {/* Main Input Card */}
+                <div className="max-w-2xl mx-auto mt-12">
+                    <Card className="p-6 bg-white/80 backdrop-blur-sm border-gray-200 shadow-lg">
+                        <div className="space-y-4">
+                            <div className="relative">
+                                <Input
+                                    placeholder="https://github.com/username/repository"
+                                    value={repoUrl}
+                                    onChange={(e) => setRepoUrl(e.target.value)}
+                                    className="h-14 pr-14 text-base border-gray-300 focus:border-orange-400 focus:ring-orange-400"
+                                />
+                                <Button
+                                    onClick={handleRun}
+                                    disabled={invokeTestAgent.isPending || !repoUrl || !errorDescription}
+                                    size="icon"
+                                    className="absolute right-2 top-2 h-10 w-10 bg-orange-500 hover:bg-orange-600 text-white rounded-full"
+                                >
+                                    {invokeTestAgent.isPending ? (
+                                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                    ) : (
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                                        </svg>
+                                    )}
+                                </Button>
+                            </div>
+
+                            <Textarea
+                                placeholder="Describe the bug: e.g., 'Login fails when user enters special characters in email field'"
+                                value={errorDescription}
+                                onChange={(e) => setErrorDescription(e.target.value)}
+                                rows={4}
+                                className="resize-none border-gray-300 focus:border-orange-400 focus:ring-orange-400"
+                            />
+                        </div>
+                    </Card>
+
+                    <p className="text-sm text-gray-500 mt-6">
+                        The AI will generate test files you can run in your own environment
+                    </p>
+                </div>
+            </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
-  );
-}
+    );
+};
+
+export default Page;

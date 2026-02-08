@@ -1,0 +1,79 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum JobStatus {
+  COMPLETED
+  FAILED
+}
+
+enum ArtifactType {
+  GENERATED_TESTS
+  TEST_REPORT
+  EXECUTION_LOGS
+}
+
+model Repository {
+  id      String @id @default(uuid())
+  ownerId String
+
+  repoOwner String
+  repoName  String
+  repoUrl   String
+
+  createdAt DateTime @default(now())
+
+  jobs Job[]
+
+  @@unique([repoOwner, repoName])
+  @@index([ownerId])
+}
+
+model Job {
+  id           String @id @default(uuid())
+  ownerId      String
+  repositoryId String
+
+  status           JobStatus
+  errorDescription String
+  summary          String?
+
+  detectedLanguage String?
+
+  createdAt DateTime @default(now())
+
+  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  artifacts Artifact[]
+
+  @@index([ownerId])
+  @@index([repositoryId])
+}
+
+model Artifact {
+  id    String @id @default(uuid())
+  jobId String
+
+  type      ArtifactType
+  objectKey String
+  expiresAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId])
+}
+
+model Usage {
+  key    String    @id
+  points Int
+  expire DateTime?
+
+  updatedAt DateTime @updatedAt
+}
