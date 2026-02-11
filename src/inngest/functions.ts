@@ -11,10 +11,11 @@ import { getSandbox } from "@/inngest/utils";
 import { lastAssistantTextMessageContent } from "@/lib/utils";
 import { TEST_AGENT_PROMPT } from "@/prompt";
 import { createTerminalTool } from "@/inngest/tools/terminal";
-import { createOrUpdateFilesTool } from "@/inngest/tools/createOrUpdateFiles";
-import { createReadFilesTool } from "@/inngest/tools/readFiles";
+import { createOrUpdateFilesTool } from "@/inngest/tools/create-or-update-files";
+import { createReadFilesTool } from "@/inngest/tools/read-files";
 import { createEnvTool } from "@/inngest/tools/create-env";
-import { createMongoDbTool } from "@/inngest/tools/createMongoDb";
+import { createMongoDbTool } from "@/inngest/tools/create-mongodb";
+import {createGetServerUrlTool} from "@/inngest/tools/get-server-url";
 
 interface TestAgentState {
     summary: string;
@@ -61,7 +62,7 @@ export const testAgentFunction = inngest.createFunction(
             name: "test-agent",
             system: TEST_AGENT_PROMPT,
             model: openai({
-                model: "gpt-4.1-mini",
+                model: "openai/gpt-4.1-mini",
                 baseUrl: process.env.AI_PIPE_URL,
                 apiKey: process.env.AI_PIPE_KEY,
                 defaultParameters: { temperature: 0.1 },
@@ -72,6 +73,7 @@ export const testAgentFunction = inngest.createFunction(
                 createReadFilesTool({ sandboxId }),
                 createEnvTool({ sandboxId }),
                 createMongoDbTool({ sandboxId }),
+                createGetServerUrlTool({ sandboxId }),
             ],
             lifecycle: {
                 onResponse: async ({ result, network }) => {
