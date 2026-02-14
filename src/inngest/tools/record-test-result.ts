@@ -1,7 +1,12 @@
 import { z } from "zod";
 import { createTool } from "@inngest/agent-kit";
+import { prisma } from "@/lib/prisma";
 
-export const createRecordTestResultTool = () => {
+interface RecordTestResultOptions {
+    jobId: string;
+}
+
+export const createRecordTestResultTool = ({ jobId }: RecordTestResultOptions) => {
     return createTool({
         name: "recordTestResult",
         description: "Record the result of a test execution. Call this after running each test file.",
@@ -18,8 +23,8 @@ export const createRecordTestResultTool = () => {
             }
 
             try {
-                const newEntry = await toolStep?.run("record-test-result", async () => {
-                    return {
+                return await toolStep?.run("record-test-result", async () => {
+                    const testData = {
                         testFile: params.testFile,
                         testName: params.testName,
                         status: params.status,
@@ -27,20 +32,36 @@ export const createRecordTestResultTool = () => {
                         output: params.output || undefined,
                         executedAt: new Date().toISOString(),
                     };
-                });
 
-                if (network && newEntry) {
-                    const testResults = network.state.data.testResults || [];
-                    testResults.push(newEntry);
-                    network.state.data.testResults = testResults;
-                }
+                    // Update agent state
+                    if (network) {
+                        const testResults = network.state.data.testResults || [];
+                        testResults.push(testData);
+                        network.state.data.testResults = testResults;
+                    }
 
-                return `Recorded ${params.status} result for ${params.testFile}`;
+                    // Get test file content from state
+                    const testFileContent = network?.state?.data?.testFiles?.[params.testFile] || "";
+
+                    // Save to database
+                    await prisma.test.create({
+                        data: {
+                            jobId,
+                            testFile: params.testFile,
+                            testName: params.testName,
+                            fileContent: testFileContent,
+                            status: params.status,
+                            exitCode: params.exitCode || null,
+                            output: params.output || null,
+                            executedAt: new Date(),
+                        },
+                    });
+
+                    return `Recorded ${params.status} result for ${params.testFile}`;
+                }) || `Recorded ${params.status} result for ${params.testFile}`;
             } catch (error) {
                 return `Error recording test result: ${error instanceof Error ? error.message : "Unknown error"}`;
             }
         },
     });
 };
-
-

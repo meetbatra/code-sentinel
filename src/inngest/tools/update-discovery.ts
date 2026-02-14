@@ -1,7 +1,12 @@
 import { z } from "zod";
 import { createTool } from "@inngest/agent-kit";
+import { prisma } from "@/lib/prisma";
 
-export const createUpdateDiscoveryTool = () => {
+interface UpdateDiscoveryOptions {
+    jobId: string;
+}
+
+export const createUpdateDiscoveryTool = ({ jobId }: UpdateDiscoveryOptions) => {
     return createTool({
         name: "updateDiscovery",
         description: "Update discovery information in state as you learn about the codebase. All fields are optional - only provide what you've discovered.",
@@ -25,7 +30,7 @@ export const createUpdateDiscoveryTool = () => {
             }
 
             try {
-                const updates = await toolStep?.run("update-discovery", async () => {
+                return await toolStep?.run("update-discovery", async () => {
                     const updatesList: string[] = [];
 
                     if (params.entryPoint) updatesList.push("entryPoint");
@@ -35,40 +40,63 @@ export const createUpdateDiscoveryTool = () => {
                     if (params.envVarsNeeded && params.envVarsNeeded.length > 0) updatesList.push("envVarsNeeded");
                     if (params.databaseUsed !== undefined) updatesList.push("databaseUsed");
 
-                    return {
-                        updatesList,
-                        data: {
-                            entryPoint: params.entryPoint || undefined,
-                            framework: params.framework || undefined,
-                            moduleType: params.moduleType || undefined,
-                            endpoints: params.endpoints.length > 0 ? params.endpoints : undefined,
-                            envVarsNeeded: params.envVarsNeeded.length > 0 ? params.envVarsNeeded : undefined,
-                            databaseUsed: params.databaseUsed !== false ? params.databaseUsed : undefined,
-                        }
+                    const data = {
+                        entryPoint: params.entryPoint || undefined,
+                        framework: params.framework || undefined,
+                        moduleType: params.moduleType || undefined,
+                        endpoints: params.endpoints.length > 0 ? params.endpoints : undefined,
+                        envVarsNeeded: params.envVarsNeeded.length > 0 ? params.envVarsNeeded : undefined,
+                        databaseUsed: params.databaseUsed,
                     };
-                });
 
-                if (network && updates) {
-                    const discoveryInfo = network.state.data.discoveryInfo || {};
+                    // Update agent state
+                    if (network) {
+                        const discoveryInfo = network.state.data.discoveryInfo || {};
 
-                    if (updates.data.entryPoint) discoveryInfo.entryPoint = updates.data.entryPoint;
-                    if (updates.data.framework) discoveryInfo.framework = updates.data.framework;
-                    if (updates.data.moduleType) discoveryInfo.moduleType = updates.data.moduleType;
-                    if (updates.data.endpoints) discoveryInfo.endpoints = updates.data.endpoints;
-                    if (updates.data.envVarsNeeded) discoveryInfo.envVarsNeeded = updates.data.envVarsNeeded;
-                    if (updates.data.databaseUsed !== undefined) discoveryInfo.databaseUsed = updates.data.databaseUsed;
+                        if (data.entryPoint) discoveryInfo.entryPoint = data.entryPoint;
+                        if (data.framework) discoveryInfo.framework = data.framework;
+                        if (data.moduleType) discoveryInfo.moduleType = data.moduleType;
+                        if (data.endpoints) discoveryInfo.endpoints = data.endpoints;
+                        if (data.envVarsNeeded) discoveryInfo.envVarsNeeded = data.envVarsNeeded;
+                        if (data.databaseUsed !== undefined) discoveryInfo.databaseUsed = data.databaseUsed;
 
-                    network.state.data.discoveryInfo = discoveryInfo;
-                }
+                        network.state.data.discoveryInfo = discoveryInfo;
+                    }
 
-                return updates && updates.updatesList.length > 0
-                    ? `Updated discovery info: ${updates.updatesList.join(", ")}`
-                    : "No updates provided";
+                    // Get current job discoveryInfo from database
+                    const currentJob = await prisma.job.findUnique({
+                        where: { id: jobId },
+                        select: { discoveryInfo: true },
+                    });
+
+                    const currentDiscoveryInfo = (typeof currentJob?.discoveryInfo === 'object' && currentJob.discoveryInfo !== null)
+                        ? currentJob.discoveryInfo as Record<string, unknown>
+                        : {};
+
+                    // Merge with new data
+                    const updatedDiscoveryInfo = {
+                        ...currentDiscoveryInfo,
+                        ...(data.entryPoint && { entryPoint: data.entryPoint }),
+                        ...(data.framework && { framework: data.framework }),
+                        ...(data.moduleType && { moduleType: data.moduleType }),
+                        ...(data.endpoints && { endpoints: data.endpoints }),
+                        ...(data.envVarsNeeded && { envVarsNeeded: data.envVarsNeeded }),
+                        ...(data.databaseUsed !== undefined && { databaseUsed: data.databaseUsed }),
+                    };
+
+                    // Save to database
+                    await prisma.job.update({
+                        where: { id: jobId },
+                        data: { discoveryInfo: updatedDiscoveryInfo },
+                    });
+
+                    return updatesList.length > 0
+                        ? `Updated discovery info: ${updatesList.join(", ")}`
+                        : "No updates provided";
+                }) || "Discovery info updated";
             } catch (error) {
                 return `Error updating discovery: ${error instanceof Error ? error.message : "Unknown error"}`;
             }
         },
     });
 };
-
-

@@ -2,24 +2,43 @@
 
 import { useState } from "react";
 import { useTRPC } from "@/trpc/client";
-import { useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
+import { useUser } from "@clerk/nextjs";
 
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Header } from "@/components/header";
 
 const Page = () => {
     const trpc = useTRPC();
+    const router = useRouter();
+    const { isSignedIn } = useUser();
 
-    const [repoUrl, setRepoUrl] = useState("");
-    const [errorDescription, setErrorDescription] = useState("");
+    const [selectedRepo, setSelectedRepo] = useState<string>("");
+    const [bugDescription, setBugDescription] = useState("");
+
+    // Fetch user's GitHub repositories
+    const { data: repos, isLoading: isLoadingRepos } = useQuery(
+        trpc.github.getRepositories.queryOptions(undefined, {
+            enabled: isSignedIn,
+        })
+    );
 
     const invokeTestAgent = useMutation(
         trpc.testAgent.run.mutationOptions({
-            onSuccess: () => {
-                toast.success("Test agent started. Tests are being generated.");
+            onSuccess: (data) => {
+                toast.success("Test agent started!");
+                router.push(`/test/${data.jobId}`);
             },
             onError: (err) => {
                 toast.error(err.message ?? "Failed to start test agent");
@@ -28,37 +47,29 @@ const Page = () => {
     );
 
     const handleRun = () => {
-        if (!repoUrl || !errorDescription) {
-            toast.error("Please provide both repo URL and error description");
+        if (!selectedRepo || !bugDescription) {
+            toast.error("Please select a repository and describe the bug");
+            return;
+        }
+
+        const repo = repos?.find((r) => r.fullName === selectedRepo);
+        if (!repo) {
+            toast.error("Repository not found");
             return;
         }
 
         invokeTestAgent.mutate({
-            repoUrl,
-            value: errorDescription,
+            repoOwner: repo.owner,
+            repoName: repo.name,
+            repoUrl: repo.cloneUrl,
+            bugDescription,
         });
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-b from-sky-100 via-blue-50 to-orange-50">
-            {/* Navigation */}
-            <nav className="flex items-center justify-between px-6 py-6 max-w-6xl mx-auto">
-                <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-red-500 rounded-lg" />
-                    <span className="text-xl font-bold text-gray-900">CodeSentinel</span>
-                </div>
-                <div className="flex items-center gap-6">
-                    <Button variant="ghost" className="text-gray-700 hover:text-gray-900">
-                        Pricing
-                    </Button>
-                    <Button variant="ghost" className="text-gray-700 hover:text-gray-900">
-                        Enterprise
-                    </Button>
-                    <Button className="bg-lime-300 text-gray-900 hover:bg-lime-400 rounded-full px-6">
-                        Start Building
-                    </Button>
-                </div>
-            </nav>
+        <div className="min-h-screen bg-linear-to-b from-sky-100 via-blue-50 to-orange-50">
+            {/* Header */}
+            <Header />
 
             {/* Hero Content */}
             <div className="max-w-4xl mx-auto px-6 pt-24 pb-16 text-center space-y-8">
@@ -67,43 +78,89 @@ const Page = () => {
                 </h1>
 
                 <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-                    Describe a bug in your GitHub repo. CodeSentinel analyzes your codebase and automatically generates test files that prove the issue exists.
+                    Select a repository from GitHub. CodeSentinel analyzes your codebase and
+                    automatically generates test files that prove the issue exists.
                 </p>
 
                 {/* Main Input Card */}
                 <div className="max-w-2xl mx-auto mt-12">
                     <Card className="p-6 bg-white/80 backdrop-blur-sm border-gray-200 shadow-lg">
                         <div className="space-y-4">
-                            <div className="relative">
-                                <Input
-                                    placeholder="https://github.com/username/repository"
-                                    value={repoUrl}
-                                    onChange={(e) => setRepoUrl(e.target.value)}
-                                    className="h-14 pr-14 text-base border-gray-300 focus:border-orange-400 focus:ring-orange-400"
-                                />
-                                <Button
-                                    onClick={handleRun}
-                                    disabled={invokeTestAgent.isPending || !repoUrl || !errorDescription}
-                                    size="icon"
-                                    className="absolute right-2 top-2 h-10 w-10 bg-orange-500 hover:bg-orange-600 text-white rounded-full"
+                            {/* Repository Selector */}
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-gray-700">
+                                    Select Repository
+                                </label>
+                                <Select
+                                    value={selectedRepo}
+                                    onValueChange={setSelectedRepo}
+                                    disabled={isLoadingRepos || !isSignedIn}
                                 >
-                                    {invokeTestAgent.isPending ? (
-                                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                    ) : (
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
-                                        </svg>
-                                    )}
-                                </Button>
+                                    <SelectTrigger className="h-14 text-base border-gray-300 focus:border-orange-400 focus:ring-orange-400">
+                                        <SelectValue placeholder={
+                                            !isSignedIn
+                                                ? "Please sign in with GitHub"
+                                                : isLoadingRepos
+                                                ? "Loading repositories..."
+                                                : "Choose a repository"
+                                        } />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {repos?.map((repo) => (
+                                            <SelectItem key={repo.id} value={repo.fullName}>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-medium">{repo.fullName}</span>
+                                                    {repo.private && (
+                                                        <span className="text-xs bg-gray-200 px-2 py-0.5 rounded">
+                                                            Private
+                                                        </span>
+                                                    )}
+                                                    {repo.language && (
+                                                        <span className="text-xs text-gray-500">
+                                                            {repo.language}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
 
-                            <Textarea
-                                placeholder="Describe the bug: e.g., 'Login fails when user enters special characters in email field'"
-                                value={errorDescription}
-                                onChange={(e) => setErrorDescription(e.target.value)}
-                                rows={4}
-                                className="resize-none border-gray-300 focus:border-orange-400 focus:ring-orange-400"
-                            />
+                            {/* Bug Description */}
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-gray-700">
+                                    Describe the Bug
+                                </label>
+                                <Textarea
+                                    placeholder="Example: Login fails when user enters special characters in email field. Expected: Should accept valid email formats. Actual: Throws validation error for emails with '+' symbol."
+                                    value={bugDescription}
+                                    onChange={(e) => setBugDescription(e.target.value)}
+                                    rows={6}
+                                    className="resize-none border-gray-300 focus:border-orange-400 focus:ring-orange-400"
+                                />
+                            </div>
+
+                            {/* Submit Button */}
+                            <Button
+                                onClick={handleRun}
+                                disabled={
+                                    invokeTestAgent.isPending ||
+                                    !selectedRepo ||
+                                    !bugDescription ||
+                                    !isSignedIn
+                                }
+                                className="w-full h-12 bg-orange-500 hover:bg-orange-600 text-white text-base font-medium"
+                            >
+                                {invokeTestAgent.isPending ? (
+                                    <span className="flex items-center gap-2">
+                                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                        Starting Test Agent...
+                                    </span>
+                                ) : (
+                                    "Generate Tests"
+                                )}
+                            </Button>
                         </div>
                     </Card>
 
