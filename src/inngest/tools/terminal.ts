@@ -31,28 +31,31 @@ export const createTerminalTool = ({
             const { command } = parsed.data;
 
             try {
-                return (
-                    await toolStep?.run("terminal", async () => {
-                        const buffers = { stdout: "", stderr: "" };
-                        try {
-                            const sandbox = await getSandbox(sandboxId);
-                            const result = await sandbox.commands.run(
-                                `cd repo && ${command}`,
-                                {
-                                    onStdout: (d: string) => {
-                                        buffers.stdout += d
-                                    },
-                                    onStderr: (d: string) => {
-                                        buffers.stderr += d
-                                    },
-                                }
-                            );
-                            return result.stdout;
-                        } catch {
+                return await toolStep?.run("terminal", async () => {
+                    const buffers = { stdout: "", stderr: "" };
+                    try {
+                        const sandbox = await getSandbox(sandboxId);
+                        const result = await sandbox.commands.run(
+                            `cd repo && ${command}`,
+                            {
+                                onStdout: (d: string) => {
+                                    buffers.stdout += d
+                                },
+                                onStderr: (d: string) => {
+                                    buffers.stderr += d
+                                },
+                            }
+                        );
+
+                        if (result.error) {
                             return `Command failed\nstdout:\n${buffers.stdout}\nstderr:\n${buffers.stderr}`;
                         }
-                    })
-                );
+
+                        return result.stdout || buffers.stdout;
+                    } catch (error) {
+                        return `Command failed\nstdout:\n${buffers.stdout}\nstderr:\n${buffers.stderr}`;
+                    }
+                });
             } catch (error) {
                 return `Error running command: ${error instanceof Error ? error.message : "Unknown error"}`;
             }
