@@ -67,6 +67,8 @@ export const createOrUpdateFilesTool = ({
                 if (network && typeof updatedFiles === "object") {
                     network.state.data.testFiles = updatedFiles;
                 }
+
+                return `Successfully created/updated ${files.length} file(s): ${files.map(f => f.path).join(", ")}`;
             } catch (error) {
                 return `Failed to create or update files: ${error instanceof Error ? error.message : String(error)}`;
             }

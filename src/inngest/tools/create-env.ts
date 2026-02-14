@@ -46,7 +46,11 @@ export const createEnvTool = ({ sandboxId }: CreateEnvToolOptions) => {
                     };
                 });
 
-                return result;
+                if (result && typeof result === 'object' && 'vars_written' in result) {
+                    return `Created .env file with ${result.vars_written.length} variable(s): ${result.vars_written.join(", ")}`;
+                }
+
+                return `Created .env file with ${envVars.length} variable(s)`;
             } catch (error) {
                 return `Failed to create .env file: ${
                     error instanceof Error ? error.message : String(error)

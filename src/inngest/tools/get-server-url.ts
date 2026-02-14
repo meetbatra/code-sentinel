@@ -37,28 +37,28 @@ export const createGetServerUrlTool = ({
             const { port } = parsed.data;
 
             try {
-                return (
-                    await step?.run("getServerUrl", async () => {
-                        const sandbox = await getSandbox(sandboxId);
+                const result = await step?.run("getServerUrl", async () => {
+                    const sandbox = await getSandbox(sandboxId);
 
-                        // E2B exposes services via getHost(port)
-                        const host = sandbox.getHost(port);
+                    // E2B exposes services via getHost(port)
+                    const host = sandbox.getHost(port);
 
-                        return {
-                            status: "ok",
-                            port,
-                            url: `https://${host}`,
-                        };
-                    })
-                );
+                    return {
+                        status: "ok",
+                        port,
+                        url: `https://${host}`,
+                    };
+                });
+
+                if (result && typeof result === 'object' && 'url' in result) {
+                    return `Server URL for port ${result.port}: ${result.url}`;
+                }
+
+                return `Server URL retrieved for port ${port}`;
             } catch (error) {
-                return {
-                    status: "error",
-                    message:
-                        error instanceof Error
-                            ? error.message
-                            : "Failed to resolve sandbox URL",
-                };
+                return `Failed to resolve sandbox URL: ${
+                    error instanceof Error ? error.message : "Unknown error"
+                }`;
             }
         },
     });

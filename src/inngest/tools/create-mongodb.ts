@@ -32,70 +32,76 @@ export const createMongoDbTool = ({
             const { envVarName } = parsed.data;
 
             try {
-                return (
-                    await toolStep?.run("createMongoDb", async () => {
-                        // Generate unique database name
-                        const dbName = `test_${randomUUID().replace(/-/g, "_")}`;
+                const result = await toolStep?.run("createMongoDb", async () => {
+                    // Generate unique database name
+                    const dbName = `test_${randomUUID().replace(/-/g, "_")}`;
 
-                        // Get MongoDB cluster URI template from CodeSentinel environment
-                        const clusterUri = process.env.MONGO_URI;
-                        if (!clusterUri) {
-                            return "Error: MONGO_URI not configured in CodeSentinel environment";
-                        }
+                    // Get MongoDB cluster URI template from CodeSentinel environment
+                    const clusterUri = process.env.MONGO_URI;
+                    if (!clusterUri) {
+                        return "Error: MONGO_URI not configured in CodeSentinel environment";
+                    }
 
-                        if (!clusterUri.includes("{db_name}")) {
-                            return "Error: MONGO_URI must contain {db_name} placeholder";
-                        }
+                    if (!clusterUri.includes("{db_name}")) {
+                        return "Error: MONGO_URI must contain {db_name} placeholder";
+                    }
 
-                        // Build database-specific URI
-                        const mongoUri = clusterUri.replace("{db_name}", dbName);
+                    // Build database-specific URI
+                    const mongoUri = clusterUri.replace("{db_name}", dbName);
 
-                        const sandbox = await getSandbox(sandboxId);
-                        const envFilePath = "repo/.env";
+                    const sandbox = await getSandbox(sandboxId);
+                    const envFilePath = "repo/.env";
 
-                        let existingEnvContent = "";
-                        let envExists = false;
+                    let existingEnvContent = "";
+                    let envExists = false;
 
-                        try {
-                            existingEnvContent = await sandbox.files.read(envFilePath);
-                            envExists = true;
-                        } catch {
-                            envExists = false;
-                        }
+                    try {
+                        existingEnvContent = await sandbox.files.read(envFilePath);
+                        envExists = true;
+                    } catch {
+                        envExists = false;
+                    }
 
-                        let newEnvContent: string;
+                    let newEnvContent: string;
 
-                        if (envExists && existingEnvContent) {
-                            const lines = existingEnvContent.split("\n");
-                            let updated = false;
+                    if (envExists && existingEnvContent) {
+                        const lines = existingEnvContent.split("\n");
+                        let updated = false;
 
-                            const updatedLines = lines.map((line) => {
-                                if (line.trim().startsWith(`${envVarName}=`)) {
-                                    updated = true;
-                                    return `${envVarName}=${mongoUri}`;
-                                }
-                                return line;
-                            });
-
-                            if (!updated) {
-                                updatedLines.push(`${envVarName}=${mongoUri}`);
+                        const updatedLines = lines.map((line) => {
+                            if (line.trim().startsWith(`${envVarName}=`)) {
+                                updated = true;
+                                return `${envVarName}=${mongoUri}`;
                             }
+                            return line;
+                        });
 
-                            newEnvContent = updatedLines.join("\n");
-                        } else {
-                            newEnvContent = `${envVarName}=${mongoUri}`;
+                        if (!updated) {
+                            updatedLines.push(`${envVarName}=${mongoUri}`);
                         }
 
-                        await sandbox.files.write(envFilePath, newEnvContent);
+                        newEnvContent = updatedLines.join("\n");
+                    } else {
+                        newEnvContent = `${envVarName}=${mongoUri}`;
+                    }
 
-                        return {
-                            status: "db_created",
-                            db_name: dbName,
-                            env_var: envVarName,
-                            env_file: ".env",
-                        };
-                    })
-                );
+                    await sandbox.files.write(envFilePath, newEnvContent);
+
+                    return {
+                        status: "db_created",
+                        db_name: dbName,
+                        env_var: envVarName,
+                        env_file: ".env",
+                    };
+                });
+
+                if (result && typeof result === 'object' && 'db_name' in result) {
+                    return `Created MongoDB database "${result.db_name}" and injected ${result.env_var} into .env`;
+                } else if (typeof result === 'string' && result.startsWith('Error:')) {
+                    return result;
+                }
+
+                return `Created MongoDB database and injected ${envVarName} into .env`;
             } catch (error) {
                 return `Failed to create MongoDB configuration: ${
                     error instanceof Error ? error.message : String(error)
