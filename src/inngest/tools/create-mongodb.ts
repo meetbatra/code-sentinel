@@ -15,8 +15,8 @@ const paramsSchema = z.object({
 });
 
 export const createMongoDbTool = ({
-                                      sandboxId,
-                                  }: CreateMongoDbToolOptions) => {
+      sandboxId
+}: CreateMongoDbToolOptions) => {
     return createTool({
         name: "createMongoDb",
         description:
