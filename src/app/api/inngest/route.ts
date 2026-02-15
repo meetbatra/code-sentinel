@@ -6,6 +6,6 @@ import {testAgentFunction} from "@/inngest/functions";
 export const { GET, POST, PUT } = serve({
     client: inngest,
     functions: [
-        testAgentFunction
+        testAgentFunction,
     ],
 });

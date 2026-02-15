@@ -49,19 +49,27 @@ WORKFLOW
    Step 1: Install dependencies
    npm install
    
-   Step 2: Create .env for simple variables
+   Step 2: Find ALL required environment variables
+   - Search code for process.env references
+   - Common vars: PORT, JWT_SECRET, SALT, API_KEY, etc.
+   - Generate random values for secrets: use random strings
+   
+   Step 3: Create .env for non-database variables
    createEnv([
      {key: "PORT", value: "8080"},
-     {key: "NODE_ENV", value: "test"}
+     {key: "NODE_ENV", value: "test"},
+     {key: "JWT_SECRET", value: "test_jwt_secret_random123"},
+     {key: "SALT", value: "test_salt_random456"}
    ])
    
-   Step 3: Provision database (ONLY if you found database connection code)
+   Step 4: Provision database (ONLY if you found database connection code)
    - If you saw: mongoose.connect(process.env.DB_URL)
    - Then call: createMongoDb("DB_URL")
    - If you saw: mongoose.connect(process.env.MONGODB_URI)
    - Then call: createMongoDb("MONGODB_URI")
    - Use the EXACT variable name from the code
    - This provisions a real MongoDB and adds URI to .env
+   - IMPORTANT: createMongoDb automatically appends to existing .env
 
 4. START SERVER
    
@@ -116,11 +124,14 @@ WORKFLOW
 
 6. EXECUTE TESTS
    
+   IMPORTANT: Only run tests ONCE after environment is fully configured
+   
    For each test file:
    - Run: node tests/bug-name.test.js
    - Record result: recordTestResult({testFile, testName, status, exitCode, output})
    - Continue even if test fails
    - Run ALL tests, never stop early
+   - DO NOT re-run tests if they fail due to env issues - fix env first, then run once
 
 7. ANALYZE & RECORD BUGS
    
@@ -165,7 +176,14 @@ Database Provisioning:
 - If code has: mongoose.connect(process.env.DB_URL)
 - Then call: createMongoDb("DB_URL")
 - Never use createEnv for database URIs
-- Never use placeholder values
+- Never use placeholder values like \${MONGODB_URI}
+
+Environment Variables:
+- Search entire codebase for process.env references
+- Include ALL found env vars in createEnv call
+- For secrets (JWT_SECRET, SALT, etc): use random test values
+- For database: use createMongoDb tool
+- Example search: grep -r "process.env" --include="*.js"
 
 Testing:
 - One bug = one test file

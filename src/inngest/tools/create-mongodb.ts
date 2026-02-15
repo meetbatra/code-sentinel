@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { createTool } from "@inngest/agent-kit";
-import { randomUUID } from "crypto";
 
 import { getSandbox } from "@/inngest/utils";
 
@@ -33,8 +32,11 @@ export const createMongoDbTool = ({
 
             try {
                 const result = await toolStep?.run("createMongoDb", async () => {
-                    // Generate unique database name
-                    const dbName = `test_${randomUUID().replace(/-/g, "_")}`;
+                    // MongoDB database name max length is 38 bytes
+                    // Use timestamp + short random string instead of UUID
+                    const timestamp = Date.now().toString(36); // Base36 timestamp
+                    const random = Math.random().toString(36).substring(2, 8); // 6 char random
+                    const dbName = `test_${timestamp}_${random}`; // ~20 chars
 
                     // Get MongoDB cluster URI template from CodeSentinel environment
                     const clusterUri = process.env.MONGO_URI;
@@ -52,13 +54,14 @@ export const createMongoDbTool = ({
                     const sandbox = await getSandbox(sandboxId);
                     const envFilePath = "repo/.env";
 
-                    let existingEnvContent = "";
-                    let envExists = false;
+                    let existingEnvContent: string;
+                    let envExists: boolean;
 
                     try {
                         existingEnvContent = await sandbox.files.read(envFilePath);
                         envExists = true;
                     } catch {
+                        existingEnvContent = "";
                         envExists = false;
                     }
 
