@@ -7,8 +7,9 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
+import { CodeBlock } from "@/components/code-block";
 
 // Type definitions
 type JobStatus = "PENDING" | "ANALYZING" | "SETTING_UP" | "TESTING" | "COMPLETED" | "FAILED";
@@ -43,11 +44,33 @@ interface Bug {
     testName: string | null;
 }
 
+interface DiscoveryInfo {
+    framework?: string;
+    entryPoint?: string;
+    moduleType?: string;
+    databaseUsed?: boolean;
+    endpoints?: Array<{
+        method: string;
+        path: string;
+        file: string;
+    }>;
+    envVarsNeeded?: string[];
+}
+
+interface ServerInfo {
+    port?: number;
+    sandboxUrl?: string;
+    startCommand?: string;
+    isRunning?: boolean;
+}
+
 interface Job {
     id: string;
     status: JobStatus;
     bugDescription: string;
     summary: string | null;
+    discoveryInfo: DiscoveryInfo | null;
+    serverInfo: ServerInfo | null;
     repository: Repository;
     tests: Test[];
     bugs: Bug[];
@@ -95,7 +118,7 @@ export default function TestResultsPage() {
     const isActive = ["PENDING", "ANALYZING", "SETTING_UP", "TESTING"].includes(job.status);
 
     if (isActive) {
-        return <LoadingState job={job} />;
+        return <LoadingState />;
     }
 
     return (
@@ -125,11 +148,106 @@ export default function TestResultsPage() {
 
             {/* Main Content */}
             <div className="container mx-auto px-6 py-8 space-y-6">
+                {/* Summary Overview */}
+                <Card className="p-6">
+                    <h2 className="text-xl font-bold mb-4">Test Results Overview</h2>
+
+                    {/* Stats */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        <div className="bg-gray-50 rounded-lg p-4">
+                            <div className="text-sm text-gray-600 mb-1">Total Tests</div>
+                            <div className="text-2xl font-bold">{job.tests.length}</div>
+                        </div>
+                        <div className="bg-green-50 rounded-lg p-4">
+                            <div className="text-sm text-green-700 mb-1">Passed</div>
+                            <div className="text-2xl font-bold text-green-700">
+                                {job.tests.filter(t => t.status === 'PASS').length}
+                            </div>
+                        </div>
+                        <div className="bg-red-50 rounded-lg p-4">
+                            <div className="text-sm text-red-700 mb-1">Failed</div>
+                            <div className="text-2xl font-bold text-red-700">
+                                {job.tests.filter(t => t.status === 'FAIL').length}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Bugs Summary */}
+                    {job.bugs.length > 0 && (
+                        <div className="mb-6">
+                            <div className="flex items-center gap-2 mb-3">
+                                <span className="text-sm font-semibold text-gray-700">Confirmed Bugs:</span>
+                                <Badge variant="destructive">{job.bugs.length}</Badge>
+                            </div>
+                            <div className="space-y-2">
+                                {job.bugs.map((bug, index) => (
+                                    <div key={bug.id} className="text-sm text-gray-700">
+                                        <span className="font-medium">{index + 1}. {bug.message}</span>
+                                        {bug.sourceFile && (
+                                            <span className="text-gray-500"> - {bug.sourceFile}</span>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* AI Summary */}
+                    {job.summary && (
+                        <div className="border-t pt-4">
+                            <div className="text-sm font-semibold text-gray-700 mb-2">Analysis Summary</div>
+                            <p className="text-gray-700 leading-relaxed">
+                                {job.summary.replace(/<task_summary>/gi, '').replace(/<\/task_summary>/gi, '').replace(/\\n/g, ' ').trim()}
+                            </p>
+                        </div>
+                    )}
+
+                    {/* Technical Details */}
+                    {job.discoveryInfo && Object.keys(job.discoveryInfo).length > 0 && (() => {
+                        const discoveryInfo = job.discoveryInfo as DiscoveryInfo;
+                        return (
+                            <div className="border-t pt-4 mt-4">
+                                <div className="text-sm font-semibold text-gray-700 mb-3">Technical Details</div>
+                                <div className="grid grid-cols-2 gap-3 text-sm">
+                                    {discoveryInfo.framework && (
+                                        <div>
+                                            <span className="text-gray-600">Framework:</span>{' '}
+                                            <span className="font-medium">{discoveryInfo.framework}</span>
+                                        </div>
+                                    )}
+                                    {discoveryInfo.entryPoint && (
+                                        <div>
+                                            <span className="text-gray-600">Entry Point:</span>{' '}
+                                            <code className="text-xs bg-gray-100 px-1.5 py-0.5 rounded">
+                                                {discoveryInfo.entryPoint}
+                                            </code>
+                                        </div>
+                                    )}
+                                    {discoveryInfo.moduleType && (
+                                        <div>
+                                            <span className="text-gray-600">Module Type:</span>{' '}
+                                            <span className="font-medium">{discoveryInfo.moduleType}</span>
+                                        </div>
+                                    )}
+                                    {discoveryInfo.databaseUsed !== undefined && (
+                                        <div>
+                                            <span className="text-gray-600">Database:</span>{' '}
+                                            <span className="font-medium">
+                                                {discoveryInfo.databaseUsed ? 'Yes' : 'No'}
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })()}
+                </Card>
+
                 {/* Bugs Section */}
                 {job.bugs.length > 0 && (
                     <Card className="p-6">
                         <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                            Bugs Found
+                            Detailed Bug Reports
                             <Badge variant="destructive">{job.bugs.length}</Badge>
                         </h2>
                         <div className="space-y-4">
@@ -186,16 +304,6 @@ export default function TestResultsPage() {
                     </Card>
                 )}
 
-                {/* Summary Section */}
-                {job.summary && (
-                    <Card className="p-6">
-                        <h2 className="text-xl font-bold mb-4">Summary</h2>
-                        <pre className="whitespace-pre-wrap text-sm font-mono bg-gray-50 p-4 rounded">
-                            {job.summary}
-                        </pre>
-                    </Card>
-                )}
-
                 {/* Empty State */}
                 {job.tests.length === 0 && job.status === "COMPLETED" && (
                     <Card className="p-8 text-center">
@@ -207,123 +315,61 @@ export default function TestResultsPage() {
     );
 }
 
-function LoadingState({ job }: { job?: Job }) {
-    const getStatusMessage = (status?: string) => {
-        switch (status) {
-            case "PENDING":
-                return "Initializing test environment...";
-            case "ANALYZING":
-                return "Analyzing your codebase...";
-            case "SETTING_UP":
-                return "Setting up dependencies and environment...";
-            case "TESTING":
-                return "Generating and running tests...";
-            default:
-                return "Starting test agent...";
-        }
-    };
+function LoadingState() {
+    const funnyMessages = [
+        "AI pretending it's smarter than you...",
+        "Teaching robots to find your bugs...",
+        "Convincing the code to confess...",
+        "Reading your spaghetti code...",
+        "Judging your variable names...",
+        "Summoning the debugging spirits...",
+        "Coffee break for the servers...",
+        "Calculating the probability of success...",
+        "Asking Stack Overflow for help...",
+        "Blaming the previous developer...",
+        "Turning it off and on again...",
+        "Consulting the ancient scrolls...",
+        "Deploying microscopic code reviewers...",
+        "Convincing bugs to reveal themselves...",
+        "Running in circles professionally...",
+        "Making up excuses for slow tests...",
+        "Pretending to understand async/await...",
+        "Negotiating with the database...",
+        "Reticulating splines...",
+        "Warming up the hamsters...",
+    ];
+
+    const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
+    const [isTransitioning, setIsTransitioning] = useState(false);
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setIsTransitioning(true);
+            // Wait for fade-out to complete before changing message
+            setTimeout(() => {
+                setCurrentMessageIndex((prev) => (prev + 1) % funnyMessages.length);
+                setIsTransitioning(false);
+            }, 400); // 400ms = half of 800ms animation
+        }, 4000); // Change message every 4 seconds
+
+        return () => clearInterval(interval);
+    }, [funnyMessages.length]);
 
     return (
         <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-            <Card className="p-12 max-w-2xl w-full">
-                <div className="text-center space-y-6">
-                    {/* Animated Icon */}
-                    <div className="flex justify-center">
-                        <div className="relative">
-                            <div className="w-24 h-24 border-8 border-gray-200 border-t-orange-500 rounded-full animate-spin" />
-                            <div className="absolute inset-0 flex items-center justify-center">
-                                <div className="w-12 h-12 bg-orange-100 rounded-full" />
-                            </div>
-                        </div>
+            <div className="relative w-full max-w-2xl px-8">
+                <div className="relative min-h-32 flex items-center justify-center">
+                    {/* Funny message with transition */}
+                    <div
+                        key={currentMessageIndex}
+                        className={`absolute text-2xl font-medium text-gray-900 text-center transition-all duration-800 ${
+                            isTransitioning ? "animate-fade-up" : "animate-fade-in-up animate-subtle-pulse"
+                        }`}
+                    >
+                        {funnyMessages[currentMessageIndex]}
                     </div>
-
-                    {/* Status Message */}
-                    <div>
-                        <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                            {getStatusMessage(job?.status)}
-                        </h2>
-                        {job && (
-                            <div className="flex items-center justify-center gap-2">
-                                <StatusBadge status={job.status} />
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Progress Steps */}
-                    <div className="space-y-3 text-left">
-                        <ProgressStep
-                            label="Environment Created"
-                            completed={job && job.status !== "PENDING"}
-                        />
-                        <ProgressStep
-                            label="Analyzing Codebase"
-                            completed={
-                                job &&
-                                ["SETTING_UP", "TESTING", "COMPLETED"].includes(job.status)
-                            }
-                            active={job?.status === "ANALYZING"}
-                        />
-                        <ProgressStep
-                            label="Setting Up Dependencies"
-                            completed={job && ["TESTING", "COMPLETED"].includes(job.status)}
-                            active={job?.status === "SETTING_UP"}
-                        />
-                        <ProgressStep
-                            label="Running Tests"
-                            completed={job?.status === "COMPLETED"}
-                            active={job?.status === "TESTING"}
-                        />
-                    </div>
-
-                    <p className="text-sm text-gray-500">
-                        This usually takes 2-5 minutes. You can safely leave this page - we&#39;ll save
-                        your results.
-                    </p>
                 </div>
-            </Card>
-        </div>
-    );
-}
-
-function ProgressStep({
-    label,
-    completed,
-    active,
-}: {
-    label: string;
-    completed?: boolean;
-    active?: boolean;
-}) {
-    return (
-        <div className="flex items-center gap-3">
-            <div
-                className={`w-6 h-6 rounded-full flex items-center justify-center ${
-                    completed
-                        ? "bg-green-500"
-                        : active
-                        ? "bg-orange-500 animate-pulse"
-                        : "bg-gray-300"
-                }`}
-            >
-                {completed ? (
-                    <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                        <path
-                            fillRule="evenodd"
-                            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                            clipRule="evenodd"
-                        />
-                    </svg>
-                ) : active ? (
-                    <div className="w-2 h-2 bg-white rounded-full" />
-                ) : null}
             </div>
-            <span
-                className={`text-sm ${
-                    completed ? "text-gray-900 font-medium" : "text-gray-600"
-                }`}
-            >
-                {label}
-            </span>
         </div>
     );
 }
@@ -399,11 +445,6 @@ function TestCard({ test }: { test: Test }) {
         toast.success("Test file downloaded");
     };
 
-    const handleCopy = async () => {
-        await navigator.clipboard.writeText(test.fileContent);
-        toast.success("Test code copied to clipboard");
-    };
-
     const statusColors = {
         PASS: "bg-green-50 text-green-700 border-green-300",
         FAIL: "bg-red-50 text-red-700 border-red-300",
@@ -439,26 +480,23 @@ function TestCard({ test }: { test: Test }) {
                     {test.output && (
                         <div>
                             <h4 className="text-sm font-semibold mb-2">Output:</h4>
-                            <pre className="bg-gray-900 text-gray-100 p-3 rounded text-xs overflow-x-auto">
-                                {test.output}
-                            </pre>
+                            <CodeBlock
+                                code={test.output}
+                                language="bash"
+                                showCopyButton={false}
+                            />
                         </div>
                     )}
 
                     {/* Test Code */}
                     <div>
-                        <h4 className="text-sm font-semibold mb-2">Test Code:</h4>
-                        <pre className="bg-gray-900 text-gray-100 p-3 rounded text-xs overflow-x-auto">
-                            {test.fileContent}
-                        </pre>
-                        <div className="flex gap-2 mt-3">
-                            <Button size="sm" onClick={handleCopy}>
-                                Copy Code
-                            </Button>
-                            <Button size="sm" variant="outline" onClick={handleDownload}>
-                                Download File
-                            </Button>
-                        </div>
+                        <h4 className="text-sm font-semibold mb-4">Test Code:</h4>
+                        <CodeBlock
+                            code={test.fileContent}
+                            language="javascript"
+                            showCopyButton={true}
+                            onDownload={handleDownload}
+                        />
                     </div>
                 </div>
             )}

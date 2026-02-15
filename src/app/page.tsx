@@ -67,39 +67,42 @@ const Page = () => {
     };
 
     return (
-        <div className="min-h-screen bg-linear-to-b from-sky-100 via-blue-50 to-orange-50">
+        <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
             {/* Header */}
             <Header />
 
             {/* Hero Content */}
-            <div className="max-w-4xl mx-auto px-6 pt-24 pb-16 text-center space-y-8">
-                <h1 className="text-5xl md:text-6xl font-bold text-gray-900 leading-tight">
-                    AI that writes tests to reproduce your bugs
-                </h1>
+            <div className="max-w-4xl mx-auto px-6 pt-20 pb-16">
+                <div className="text-center space-y-6 mb-16">
+                    <h1 className="text-5xl md:text-6xl font-bold text-gray-900 leading-tight">
+                        Autonomous bug testing<br />
+                        <span className="text-orange-500">powered by AI</span>
+                    </h1>
 
-                <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-                    Select a repository from GitHub. CodeSentinel analyzes your codebase and
-                    automatically generates test files that prove the issue exists.
-                </p>
+                    <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+                        Describe a bug, and CodeSentinel autonomously analyzes your codebase,
+                        sets up the environment, writes tests, and confirms if the bug exists.
+                    </p>
+                </div>
 
                 {/* Main Input Card */}
-                <div className="max-w-2xl mx-auto mt-12">
-                    <Card className="p-6 bg-white/80 backdrop-blur-sm border-gray-200 shadow-lg">
-                        <div className="space-y-4">
+                <div className="max-w-2xl mx-auto">
+                    <Card className="p-8 bg-white border-gray-200 shadow-xl">
+                        <div className="space-y-6">
                             {/* Repository Selector */}
                             <div className="space-y-2">
-                                <label className="text-sm font-medium text-gray-700">
-                                    Select Repository
+                                <label className="text-sm font-semibold text-gray-900">
+                                    Repository
                                 </label>
                                 <Select
                                     value={selectedRepo}
                                     onValueChange={setSelectedRepo}
                                     disabled={isLoadingRepos || !isSignedIn}
                                 >
-                                    <SelectTrigger className="h-14 text-base border-gray-300 focus:border-orange-400 focus:ring-orange-400">
+                                    <SelectTrigger className="h-12 text-base border-gray-300 focus:border-orange-500 focus:ring-orange-500">
                                         <SelectValue placeholder={
                                             !isSignedIn
-                                                ? "Please sign in with GitHub"
+                                                ? "Sign in with GitHub to continue"
                                                 : isLoadingRepos
                                                 ? "Loading repositories..."
                                                 : "Choose a repository"
@@ -129,15 +132,15 @@ const Page = () => {
 
                             {/* Bug Description */}
                             <div className="space-y-2">
-                                <label className="text-sm font-medium text-gray-700">
-                                    Describe the Bug
+                                <label className="text-sm font-semibold text-gray-900">
+                                    Bug Description
                                 </label>
                                 <Textarea
-                                    placeholder="Example: Login fails when user enters special characters in email field. Expected: Should accept valid email formats. Actual: Throws validation error for emails with '+' symbol."
+                                    placeholder="Example: Signup accepts weak passwords like '123' without validation. Expected: Should reject passwords shorter than 8 characters with 400 status."
                                     value={bugDescription}
                                     onChange={(e) => setBugDescription(e.target.value)}
-                                    rows={6}
-                                    className="resize-none border-gray-300 focus:border-orange-400 focus:ring-orange-400"
+                                    rows={5}
+                                    className="resize-none border-gray-300 focus:border-orange-500 focus:ring-orange-500 text-base"
                                 />
                             </div>
 
@@ -150,23 +153,38 @@ const Page = () => {
                                     !bugDescription ||
                                     !isSignedIn
                                 }
-                                className="w-full h-12 bg-orange-500 hover:bg-orange-600 text-white text-base font-medium"
+                                className="w-full h-12 bg-orange-500 hover:bg-orange-600 text-white text-base font-semibold shadow-lg hover:shadow-xl transition-all"
                             >
                                 {invokeTestAgent.isPending ? (
                                     <span className="flex items-center gap-2">
                                         <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                        Starting Test Agent...
+                                        Starting...
                                     </span>
                                 ) : (
-                                    "Generate Tests"
+                                    "Start Testing"
                                 )}
                             </Button>
                         </div>
                     </Card>
 
-                    <p className="text-sm text-gray-500 mt-6">
-                        The AI will generate test files you can run in your own environment
-                    </p>
+                    {/* Feature highlights */}
+                    <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                        <div className="space-y-2">
+                            <div className="text-2xl">⚡</div>
+                            <h3 className="font-semibold text-gray-900">Real-time Testing</h3>
+                            <p className="text-sm text-gray-600">Watch progress as tests run live</p>
+                        </div>
+                        <div className="space-y-2">
+                            <div className="text-2xl">🔍</div>
+                            <h3 className="font-semibold text-gray-900">Root Cause Analysis</h3>
+                            <p className="text-sm text-gray-600">Pinpoints exact source of issues</p>
+                        </div>
+                        <div className="space-y-2">
+                            <div className="text-2xl">📝</div>
+                            <h3 className="font-semibold text-gray-900">Detailed Reports</h3>
+                            <p className="text-sm text-gray-600">Get comprehensive test results</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

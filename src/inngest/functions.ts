@@ -135,8 +135,8 @@ export const testAgentFunction = inngest.createFunction(
                 system: TEST_AGENT_PROMPT,
                 model: openai({
                     model: "gpt-4.1-mini",
-                    baseUrl: process.env.AI_PIPE_URL,
-                    apiKey: process.env.AI_PIPE_KEY,
+                    // baseUrl: process.env.AI_PIPE_URL,
+                    // apiKey: process.env.AI_PIPE_KEY,
                     defaultParameters: { temperature: 0.1 },
                 }),
                 tools: [
@@ -189,30 +189,77 @@ export const testAgentFunction = inngest.createFunction(
 
             const result = await network.run(bugDescription, { state });
 
-            // Final update: COMPLETED
-            await step.run("update-status-completed", async () => {
+            // Final update: Fetch all data from database and update job
+            const finalData = await step.run("finalize-and-save", async () => {
+                // Fetch the complete job data with all related records
+                const job = await prisma.job.findUnique({
+                    where: { id: jobId },
+                    include: {
+                        tests: { orderBy: { createdAt: "desc" } },
+                        bugs: { orderBy: { createdAt: "desc" } },
+                    },
+                });
+
+                if (!job) {
+                    throw new Error("Job not found");
+                }
+
+                // Extract data from result state
+                const summary = result.state.data.summary || "";
+                const testFiles = result.state.data.testFiles || {};
+                const discoveryInfo = job.discoveryInfo || {};
+                const serverInfo = job.serverInfo || {};
+
+                // Build testResults array from database Test records
+                const testResults = job.tests.map(test => ({
+                    testFile: test.testFile,
+                    testName: test.testName,
+                    status: test.status,
+                    exitCode: test.exitCode,
+                    output: test.output,
+                    executedAt: test.createdAt.toISOString(),
+                }));
+
+                // Build detectedErrors array from database Bug records
+                const detectedErrors = job.bugs.map(bug => ({
+                    message: bug.message,
+                    testFile: bug.testFile,
+                    testName: bug.testName,
+                    sourceFile: bug.sourceFile,
+                    rootCause: bug.rootCause,
+                }));
+
+                // Update job with final status and summary
                 await prisma.job.update({
                     where: { id: jobId },
                     data: {
                         status: "COMPLETED",
                         completedAt: new Date(),
-                        discoveryInfo: result.state.data.discoveryInfo,
-                        serverInfo: result.state.data.serverInfo,
+                        summary,
                     },
                 });
+
+                return {
+                    summary,
+                    testFiles,
+                    discoveryInfo,
+                    serverInfo,
+                    testResults,
+                    detectedErrors,
+                };
             });
 
             /* ---------------- Return ---------------- */
 
             return {
                 jobId,
-                status: "COMPLETED",
-                summary: result.state.data.summary,
-                testFiles: result.state.data.testFiles,
-                discoveryInfo: result.state.data.discoveryInfo,
-                serverInfo: result.state.data.serverInfo,
-                testResults: result.state.data.testResults,
-                detectedErrors: result.state.data.detectedErrors,
+                status: "COMPLETED" as const,
+                summary: finalData.summary,
+                testFiles: finalData.testFiles,
+                discoveryInfo: finalData.discoveryInfo,
+                serverInfo: finalData.serverInfo,
+                testResults: finalData.testResults,
+                detectedErrors: finalData.detectedErrors,
             };
         } catch (error) {
             // Update status: FAILED

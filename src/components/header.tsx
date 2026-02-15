@@ -8,21 +8,15 @@ export function Header() {
     return (
         <nav className="flex items-center justify-between px-6 py-6 max-w-6xl mx-auto">
             <Link href="/" className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-linear-to-br from-orange-500 to-red-500 rounded-lg" />
+                <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-red-500 rounded-lg" />
                 <span className="text-xl font-bold text-gray-900">CodeSentinel</span>
             </Link>
-            <div className="flex items-center gap-6">
-                <Button variant="ghost" className="text-gray-700 hover:text-gray-900">
-                    Pricing
-                </Button>
-                <Button variant="ghost" className="text-gray-700 hover:text-gray-900">
-                    Enterprise
-                </Button>
 
+            <div className="flex items-center gap-4">
                 <SignedOut>
                     <SignInButton mode="modal">
-                        <Button className="bg-lime-300 text-gray-900 hover:bg-lime-400 rounded-full px-6">
-                            Sign In
+                        <Button className="bg-orange-500 text-white hover:bg-orange-600 rounded-full px-6">
+                            Sign In with GitHub
                         </Button>
                     </SignInButton>
                 </SignedOut>
