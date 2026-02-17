@@ -48,7 +48,7 @@ export function CodeBlock({
         <div className={`relative group ${className}`}>
             {/* Language badge and action buttons */}
             <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-mono text-gray-500 uppercase tracking-wide">
+                <span className="text-xs font-mono text-muted-foreground uppercase tracking-wide">
                     {language}
                 </span>
                 <div className="flex items-center gap-1">
@@ -61,7 +61,7 @@ export function CodeBlock({
                             title={copied ? "Copied!" : "Copy code"}
                         >
                             {copied ? (
-                                <Check className="h-4 w-4 text-green-600" />
+                                <Check className="h-4 w-4 text-chart-2" />
                             ) : (
                                 <Copy className="h-4 w-4" />
                             )}
@@ -81,7 +81,7 @@ export function CodeBlock({
                 </div>
             </div>
 
-            <pre className={`${showLineNumbers ? "line-numbers" : ""} bg-[#2d2d2d]! m-0! p-4 rounded-lg overflow-x-auto shadow-inner border border-gray-700`}>
+            <pre className={`${showLineNumbers ? "line-numbers" : ""} bg-[#2d2d2d]! m-0! p-4 rounded-lg overflow-x-auto shadow-inner border border-border`}>
                 <code ref={codeRef} className={`language-${language} text-sm! leading-relaxed`}>
                     {code}
                 </code>

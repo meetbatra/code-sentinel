@@ -109,7 +109,7 @@ export default function TestResultsPage() {
             <div className="min-h-screen flex items-center justify-center">
                 <Card className="p-8 text-center">
                     <h2 className="text-2xl font-bold mb-2">Job not found</h2>
-                    <p className="text-gray-600">This test job does not exist or has been deleted.</p>
+                    <p className="text-muted-foreground">This test job does not exist or has been deleted.</p>
                 </Card>
             </div>
         );
@@ -122,27 +122,27 @@ export default function TestResultsPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen bg-background">
             {/* Header */}
-            <div className="bg-white border-b">
+            <div className="bg-card border-b">
                 <div className="container mx-auto px-6 py-6">
                     <div className="flex items-center justify-between mb-4">
                         <div>
-                            <h1 className="text-3xl font-bold text-gray-900">
+                            <h1 className="text-3xl font-bold text-foreground">
                                 {job.repository.repoOwner}/{job.repository.repoName}
                             </h1>
                             <a
                                 href={job.repository.repoUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-sm text-blue-600 hover:underline"
+                                className="text-sm text-primary hover:underline"
                             >
                                 {job.repository.repoUrl}
                             </a>
                         </div>
                         <StatusBadge status={job.status} />
                     </div>
-                    <p className="text-gray-700">{job.bugDescription}</p>
+                    <p className="text-card-foreground">{job.bugDescription}</p>
                 </div>
             </div>
 
@@ -154,19 +154,19 @@ export default function TestResultsPage() {
 
                     {/* Stats */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                        <div className="bg-gray-50 rounded-lg p-4">
-                            <div className="text-sm text-gray-600 mb-1">Total Tests</div>
+                        <div className="bg-muted rounded-lg p-4">
+                            <div className="text-sm text-muted-foreground mb-1">Total Tests</div>
                             <div className="text-2xl font-bold">{job.tests.length}</div>
                         </div>
-                        <div className="bg-green-50 rounded-lg p-4">
-                            <div className="text-sm text-green-700 mb-1">Passed</div>
-                            <div className="text-2xl font-bold text-green-700">
+                        <div className="bg-chart-2/10 rounded-lg p-4">
+                            <div className="text-sm text-chart-2 mb-1">Passed</div>
+                            <div className="text-2xl font-bold text-chart-2">
                                 {job.tests.filter(t => t.status === 'PASS').length}
                             </div>
                         </div>
-                        <div className="bg-red-50 rounded-lg p-4">
-                            <div className="text-sm text-red-700 mb-1">Failed</div>
-                            <div className="text-2xl font-bold text-red-700">
+                        <div className="bg-destructive/10 rounded-lg p-4">
+                            <div className="text-sm text-destructive mb-1">Failed</div>
+                            <div className="text-2xl font-bold text-destructive">
                                 {job.tests.filter(t => t.status === 'FAIL').length}
                             </div>
                         </div>
@@ -176,15 +176,15 @@ export default function TestResultsPage() {
                     {job.bugs.length > 0 && (
                         <div className="mb-6">
                             <div className="flex items-center gap-2 mb-3">
-                                <span className="text-sm font-semibold text-gray-700">Confirmed Bugs:</span>
+                                <span className="text-sm font-semibold text-card-foreground">Confirmed Bugs:</span>
                                 <Badge variant="destructive">{job.bugs.length}</Badge>
                             </div>
                             <div className="space-y-2">
                                 {job.bugs.map((bug, index) => (
-                                    <div key={bug.id} className="text-sm text-gray-700">
+                                    <div key={bug.id} className="text-sm text-card-foreground">
                                         <span className="font-medium">{index + 1}. {bug.message}</span>
                                         {bug.sourceFile && (
-                                            <span className="text-gray-500"> - {bug.sourceFile}</span>
+                                            <span className="text-muted-foreground"> - {bug.sourceFile}</span>
                                         )}
                                     </div>
                                 ))}
@@ -195,8 +195,8 @@ export default function TestResultsPage() {
                     {/* AI Summary */}
                     {job.summary && (
                         <div className="border-t pt-4">
-                            <div className="text-sm font-semibold text-gray-700 mb-2">Analysis Summary</div>
-                            <p className="text-gray-700 leading-relaxed">
+                            <div className="text-sm font-semibold text-card-foreground mb-2">Analysis Summary</div>
+                            <p className="text-card-foreground leading-relaxed">
                                 {job.summary.replace(/<task_summary>/gi, '').replace(/<\/task_summary>/gi, '').replace(/\\n/g, ' ').trim()}
                             </p>
                         </div>
@@ -207,31 +207,31 @@ export default function TestResultsPage() {
                         const discoveryInfo = job.discoveryInfo as DiscoveryInfo;
                         return (
                             <div className="border-t pt-4 mt-4">
-                                <div className="text-sm font-semibold text-gray-700 mb-3">Technical Details</div>
+                                <div className="text-sm font-semibold text-card-foreground mb-3">Technical Details</div>
                                 <div className="grid grid-cols-2 gap-3 text-sm">
                                     {discoveryInfo.framework && (
                                         <div>
-                                            <span className="text-gray-600">Framework:</span>{' '}
+                                            <span className="text-muted-foreground">Framework:</span>{' '}
                                             <span className="font-medium">{discoveryInfo.framework}</span>
                                         </div>
                                     )}
                                     {discoveryInfo.entryPoint && (
                                         <div>
-                                            <span className="text-gray-600">Entry Point:</span>{' '}
-                                            <code className="text-xs bg-gray-100 px-1.5 py-0.5 rounded">
+                                            <span className="text-muted-foreground">Entry Point:</span>{' '}
+                                            <code className="text-xs bg-muted px-1.5 py-0.5 rounded">
                                                 {discoveryInfo.entryPoint}
                                             </code>
                                         </div>
                                     )}
                                     {discoveryInfo.moduleType && (
                                         <div>
-                                            <span className="text-gray-600">Module Type:</span>{' '}
+                                            <span className="text-muted-foreground">Module Type:</span>{' '}
                                             <span className="font-medium">{discoveryInfo.moduleType}</span>
                                         </div>
                                     )}
                                     {discoveryInfo.databaseUsed !== undefined && (
                                         <div>
-                                            <span className="text-gray-600">Database:</span>{' '}
+                                            <span className="text-muted-foreground">Database:</span>{' '}
                                             <span className="font-medium">
                                                 {discoveryInfo.databaseUsed ? 'Yes' : 'No'}
                                             </span>
@@ -307,7 +307,7 @@ export default function TestResultsPage() {
                 {/* Empty State */}
                 {job.tests.length === 0 && job.status === "COMPLETED" && (
                     <Card className="p-8 text-center">
-                        <p className="text-gray-600">No tests were generated for this job.</p>
+                        <p className="text-muted-foreground">No tests were generated for this job.</p>
                     </Card>
                 )}
             </div>
@@ -317,26 +317,29 @@ export default function TestResultsPage() {
 
 function LoadingState() {
     const funnyMessages = [
-        "AI pretending it's smarter than you...",
+        "AI pretending it knows better than you...",
+        "Teaching robots to critique humans...",
+        "Generating helpful suggestions (results may vary)...",
+        "Calibrating sarcasm levels...",
+        "Translating engineer tears into feedback...",
+        "Loading existential dread about your code...",
         "Teaching robots to find your bugs...",
-        "Convincing the code to confess...",
-        "Reading your spaghetti code...",
         "Judging your variable names...",
         "Summoning the debugging spirits...",
-        "Coffee break for the servers...",
-        "Calculating the probability of success...",
+        "Calculating the probability of you being wrong...",
         "Asking Stack Overflow for help...",
         "Blaming the previous developer...",
-        "Turning it off and on again...",
         "Consulting the ancient scrolls...",
-        "Deploying microscopic code reviewers...",
         "Convincing bugs to reveal themselves...",
-        "Running in circles professionally...",
-        "Making up excuses for slow tests...",
         "Pretending to understand async/await...",
         "Negotiating with the database...",
         "Reticulating splines...",
-        "Warming up the hamsters...",
+        "Analyzing your life choices, one line at a time...",
+        "Decoding the mysteries of your logic...",
+        "Channeling the spirit of senior developers...",
+        "Preparing passive-aggressive comments...",
+        "Neural networks are gossiping about your project...",
+        "Summoning the ghosts of bugs past...",
     ];
 
     const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
@@ -356,13 +359,13 @@ function LoadingState() {
     }, [funnyMessages.length]);
 
     return (
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="min-h-screen bg-background flex items-center justify-center">
             <div className="relative w-full max-w-2xl px-8">
                 <div className="relative min-h-32 flex items-center justify-center">
                     {/* Funny message with transition */}
                     <div
                         key={currentMessageIndex}
-                        className={`absolute text-2xl font-medium text-gray-900 text-center transition-all duration-800 ${
+                        className={`absolute text-2xl font-medium text-foreground text-center transition-all duration-800 ${
                             isTransitioning ? "animate-fade-up" : "animate-fade-in-up animate-subtle-pulse"
                         }`}
                     >
@@ -376,12 +379,12 @@ function LoadingState() {
 
 function StatusBadge({ status }: { status: string }) {
     const variants: Record<string, { bg: string; text: string }> = {
-        PENDING: { bg: "bg-gray-100", text: "text-gray-700" },
-        ANALYZING: { bg: "bg-blue-100", text: "text-blue-700" },
-        SETTING_UP: { bg: "bg-yellow-100", text: "text-yellow-700" },
-        TESTING: { bg: "bg-purple-100", text: "text-purple-700" },
-        COMPLETED: { bg: "bg-green-100", text: "text-green-700" },
-        FAILED: { bg: "bg-red-100", text: "text-red-700" },
+        PENDING: { bg: "bg-muted", text: "text-muted-foreground" },
+        ANALYZING: { bg: "bg-chart-2/20", text: "text-chart-2" },
+        SETTING_UP: { bg: "bg-chart-3/20", text: "text-chart-3" },
+        TESTING: { bg: "bg-chart-4/20", text: "text-chart-4" },
+        COMPLETED: { bg: "bg-chart-2/20", text: "text-chart-2" },
+        FAILED: { bg: "bg-destructive/20", text: "text-destructive" },
     };
 
     const variant = variants[status] || variants.PENDING;
@@ -397,9 +400,9 @@ function StatusBadge({ status }: { status: string }) {
 
 function BugCard({ bug }: { bug: Bug }) {
     const confidenceColors = {
-        HIGH: "border-red-500 bg-red-50",
-        MEDIUM: "border-yellow-500 bg-yellow-50",
-        LOW: "border-gray-500 bg-gray-50",
+        HIGH: "border-destructive bg-destructive/10",
+        MEDIUM: "border-chart-3 bg-chart-3/10",
+        LOW: "border-muted-foreground bg-muted",
     };
 
     return (
@@ -407,20 +410,20 @@ function BugCard({ bug }: { bug: Bug }) {
             <div className="flex items-start justify-between mb-2">
                 <Badge variant="destructive">{bug.confidence} CONFIDENCE</Badge>
                 {bug.sourceFile && (
-                    <span className="text-xs text-gray-600 font-mono">{bug.sourceFile}</span>
+                    <span className="text-xs text-muted-foreground font-mono">{bug.sourceFile}</span>
                 )}
             </div>
 
             <h3 className="font-semibold text-lg mb-2">{bug.message}</h3>
 
             {bug.rootCause && (
-                <p className="text-sm text-gray-700 mb-3">
+                <p className="text-sm text-card-foreground mb-3">
                     <strong>Root Cause:</strong> {bug.rootCause}
                 </p>
             )}
 
             {bug.testFile && (
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-muted-foreground">
                     Found by: <span className="font-mono">{bug.testFile}</span>
                     {bug.testName && <> → {bug.testName}</>}
                 </p>
@@ -446,9 +449,9 @@ function TestCard({ test }: { test: Test }) {
     };
 
     const statusColors = {
-        PASS: "bg-green-50 text-green-700 border-green-300",
-        FAIL: "bg-red-50 text-red-700 border-red-300",
-        ERROR: "bg-orange-50 text-orange-700 border-orange-300",
+        PASS: "bg-chart-2/20 text-chart-2 border-chart-2",
+        FAIL: "bg-destructive/20 text-destructive border-destructive",
+        ERROR: "bg-chart-1/20 text-chart-1 border-chart-1",
     };
 
     return (
@@ -461,11 +464,11 @@ function TestCard({ test }: { test: Test }) {
                         >
                             {test.status}
                         </Badge>
-                        <span className="font-mono text-sm text-gray-700">{test.testFile}</span>
+                        <span className="font-mono text-sm text-card-foreground">{test.testFile}</span>
                     </div>
-                    <p className="text-gray-600 text-sm">{test.testName}</p>
+                    <p className="text-muted-foreground text-sm">{test.testName}</p>
                     {test.exitCode !== null && (
-                        <p className="text-xs text-gray-500 mt-1">Exit code: {test.exitCode}</p>
+                        <p className="text-xs text-muted-foreground mt-1">Exit code: {test.exitCode}</p>
                     )}
                 </div>
 
