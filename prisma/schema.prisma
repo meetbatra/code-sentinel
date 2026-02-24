@@ -127,6 +127,7 @@ model Bug {
   rootCause  String?       @db.Text
   sourceFile String?
   confidence BugConfidence
+  suggestedFixes Json?
 
   testFile String?
   testName String?
