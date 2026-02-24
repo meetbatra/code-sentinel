@@ -45,12 +45,35 @@ export const createRecordBugTool = ({ jobId }: RecordBugOptions) => {
                         return "Error recording bug: modify fixes must include existingSnippet";
                     }
 
-                    // Size guard: prevent huge payloads
+                    // Size guard: per-item and total payload checks
                     try {
-                        const totalBytes = Buffer.byteLength(JSON.stringify(params.suggestedFixes), 'utf8');
-                        const MAX_BYTES = 200 * 1024; // 200 KB
-                        if (totalBytes > MAX_BYTES) {
-                            return `Error recording bug: suggestedFixes payload too large (${totalBytes} bytes)`;
+                        const fixes = params.suggestedFixes || [];
+                        // Per-item checks: modify -> small snippets, new -> allow larger full-file but capped
+                        const MAX_MODIFY_SNIPPET = 20000; // 20 KB
+                        const MAX_NEW_FILE = 1024 * 1024; // 1 MB per new file
+                        const MAX_TOTAL = 2 * 1024 * 1024; // 2 MB total across all fixes
+                        let totalBytes = 0;
+                        for (const fix of fixes) {
+                            if (fix.type === 'modify') {
+                                if ((fix.existingSnippet || '').length === 0) {
+                                    return 'Error recording bug: modify fixes must include existingSnippet';
+                                }
+                                if ((fix.existingSnippet || '').length > MAX_MODIFY_SNIPPET || (fix.updatedSnippet || '').length > MAX_MODIFY_SNIPPET) {
+                                    return 'Error recording bug: modify fix snippets exceed allowed size (20KB)';
+                                }
+                                totalBytes += Buffer.byteLength(fix.existingSnippet || '', 'utf8') + Buffer.byteLength(fix.updatedSnippet || '', 'utf8');
+                            } else if (fix.type === 'new') {
+                                // updatedSnippet may be the full file for new files
+                                if ((fix.updatedSnippet || '').length > MAX_NEW_FILE) {
+                                    return `Error recording bug: new file content too large (${Buffer.byteLength(fix.updatedSnippet||'', 'utf8')} bytes)`;
+                                }
+                                totalBytes += Buffer.byteLength(fix.updatedSnippet || '', 'utf8');
+                            } else {
+                                return 'Error recording bug: unknown fix type';
+                            }
+                        }
+                        if (totalBytes > MAX_TOTAL) {
+                            return `Error recording bug: suggestedFixes total payload too large (${totalBytes} bytes)`;
                         }
                     } catch (e) {
                         return "Error recording bug: could not validate suggestedFixes size";
