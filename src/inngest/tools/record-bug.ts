@@ -21,11 +21,12 @@ export const createRecordBugTool = ({ jobId }: RecordBugOptions) => {
                 .array(
                     z.object({
                         type: z.enum(["modify", "new"]).describe("Whether to modify an existing file or create a new file"),
-                        filePath: z.string().describe("Path to the file to modify or create"),
-                        existingSnippet: z.string().describe("Exact snippet from the existing file to be replaced (required for modify)").default(""),
-                        updatedSnippet: z.string().describe("Updated snippet or full file content (for new files)"),
+                        filePath: z.string().min(1).max(400).describe("Path to the file to modify or create"),
+                        existingSnippet: z.string().max(20000).describe("Exact snippet from the existing file to be replaced (required for modify)").default(""),
+                        updatedSnippet: z.string().max(20000).describe("Updated snippet or full file content (for new files)"),
                     })
                 )
+                .max(8)
                 .describe("Suggested code changes to fix the bug")
                 .default([]),
         }),
@@ -36,11 +37,23 @@ export const createRecordBugTool = ({ jobId }: RecordBugOptions) => {
 
             try {
                 return await toolStep?.run("record-bug", async () => {
+                    // Basic logical validation
                     const invalidFix = params.suggestedFixes.find(
                         (fix) => fix.type === "modify" && !fix.existingSnippet.trim()
                     );
                     if (invalidFix) {
                         return "Error recording bug: modify fixes must include existingSnippet";
+                    }
+
+                    // Size guard: prevent huge payloads
+                    try {
+                        const totalBytes = Buffer.byteLength(JSON.stringify(params.suggestedFixes), 'utf8');
+                        const MAX_BYTES = 200 * 1024; // 200 KB
+                        if (totalBytes > MAX_BYTES) {
+                            return `Error recording bug: suggestedFixes payload too large (${totalBytes} bytes)`;
+                        }
+                    } catch (e) {
+                        return "Error recording bug: could not validate suggestedFixes size";
                     }
 
                     const bugData = {
@@ -59,7 +72,7 @@ export const createRecordBugTool = ({ jobId }: RecordBugOptions) => {
                         network.state.data.detectedErrors = detectedErrors;
                     }
 
-                    // Save to database
+                    // Save to database (persist suggestedFixes only when present)
                     await prisma.bug.create({
                         data: {
                             jobId,
@@ -69,9 +82,9 @@ export const createRecordBugTool = ({ jobId }: RecordBugOptions) => {
                             testFile: params.testFile,
                             testName: params.testName || null,
                             confidence: params.confidence,
-                            ...(params.suggestedFixes.length > 0 && {
-                                suggestedFixes: params.suggestedFixes
-                            }),
+                            ...(params.suggestedFixes && params.suggestedFixes.length > 0
+                                ? { suggestedFixes: params.suggestedFixes }
+                                : {}),
                         },
                     });
 
