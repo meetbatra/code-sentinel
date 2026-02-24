@@ -205,8 +205,22 @@ Suggested Fixes Format (recordBug.suggestedFixes):
   - type: "modify" | "new"
   - filePath: "path/to/file.js"
   - existingSnippet: exact snippet from existing file (required for modify, use "" for new)
-  - updatedSnippet: updated snippet (modify) or full file content (new)
+  - updatedSnippet: updated snippet (modify) or small focused snippet for new content (not full file)
 - Execute ALL tests even if some fail
+
+IMPORTANT: Strict output format for suggestedFixes
+- The agent MUST return suggestedFixes as a JSON array. Do NOT return a single object or plain text.
+- Each suggestedFix object must contain only the minimal code snippets required: existingSnippet and updatedSnippet should be focused code fragments (a few lines) — DO NOT return the entire file content.
+- Example (must match exactly):
+
+  suggestedFixes: [{
+    "type": "modify",
+    "filePath": "src/controllers/user.ts",
+    "existingSnippet": "if(!user) return res.status(404).send('not found');",
+    "updatedSnippet": "if(!user) return res.status(404).json({error: 'User not found'});"
+  }]
+
+If the agent cannot produce a valid JSON array in this format, return an explicit error message and do not call recordBug.
 
 ====================
 SUCCESS CRITERIA
