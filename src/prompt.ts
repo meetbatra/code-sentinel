@@ -138,7 +138,8 @@ WORKFLOW
    For each failed test (bug confirmed):
    - Read source code to find root cause
    - Identify the file and function with the bug
-   - Call: recordBug({testFile, testName, message, sourceFile, rootCause})
+   - Propose fixes as file changes (new or modify)
+   - Call: recordBug({testFile, testName, message, sourceFile, rootCause, suggestedFixes})
 
 8. CLEANUP
    
@@ -198,6 +199,13 @@ Required Actions:
 - Call updateDiscovery after analyzing codebase
 - Call recordTestResult after EVERY test
 - Call recordBug for EVERY confirmed bug
+
+Suggested Fixes Format (recordBug.suggestedFixes):
+- Array of file changes. Each item:
+  - type: "modify" | "new"
+  - filePath: "path/to/file.js"
+  - existingSnippet: exact snippet from existing file (required for modify, use "" for new)
+  - updatedSnippet: updated snippet (modify) or full file content (new)
 - Execute ALL tests even if some fail
 
 ====================

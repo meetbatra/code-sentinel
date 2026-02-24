@@ -17,6 +17,17 @@ export const createRecordBugTool = ({ jobId }: RecordBugOptions) => {
             sourceFile: z.string().describe("Source file containing the bug").default(""),
             rootCause: z.string().describe("Explanation of why the bug occurs").default(""),
             confidence: z.enum(["LOW", "MEDIUM", "HIGH"]).describe("Confidence level of the bug detection").default("MEDIUM"),
+            suggestedFixes: z
+                .array(
+                    z.object({
+                        type: z.enum(["modify", "new"]).describe("Whether to modify an existing file or create a new file"),
+                        filePath: z.string().describe("Path to the file to modify or create"),
+                        existingSnippet: z.string().describe("Exact snippet from the existing file to be replaced (required for modify)").default(""),
+                        updatedSnippet: z.string().describe("Updated snippet or full file content (for new files)"),
+                    })
+                )
+                .describe("Suggested code changes to fix the bug")
+                .default([]),
         }),
         handler: async (params, { step: toolStep, network }) => {
             if (!network) {
@@ -25,12 +36,20 @@ export const createRecordBugTool = ({ jobId }: RecordBugOptions) => {
 
             try {
                 return await toolStep?.run("record-bug", async () => {
+                    const invalidFix = params.suggestedFixes.find(
+                        (fix) => fix.type === "modify" && !fix.existingSnippet.trim()
+                    );
+                    if (invalidFix) {
+                        return "Error recording bug: modify fixes must include existingSnippet";
+                    }
+
                     const bugData = {
                         testFile: params.testFile,
                         testName: params.testName || undefined,
                         message: params.message,
                         sourceFile: params.sourceFile || undefined,
                         rootCause: params.rootCause || undefined,
+                        suggestedFixes: params.suggestedFixes,
                     };
 
                     // Update agent state
@@ -50,6 +69,7 @@ export const createRecordBugTool = ({ jobId }: RecordBugOptions) => {
                             testFile: params.testFile,
                             testName: params.testName || null,
                             confidence: params.confidence,
+                            suggestedFixes: params.suggestedFixes.length ? params.suggestedFixes : null,
                         },
                     });
 

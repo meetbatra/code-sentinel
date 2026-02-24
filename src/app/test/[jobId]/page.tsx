@@ -42,6 +42,12 @@ interface Bug {
     confidence: BugConfidence;
     testFile: string | null;
     testName: string | null;
+    suggestedFixes?: Array<{
+        type: "modify" | "new";
+        filePath: string;
+        existingSnippet?: string;
+        updatedSnippet: string;
+    }> | null;
 }
 
 interface DiscoveryInfo {
@@ -82,7 +88,7 @@ export default function TestResultsPage() {
     const trpc = useTRPC();
 
     // Poll every 2s if job is still running
-    const { data: job, isLoading } = useQuery(
+    const { data: job, isLoading, isFetching, isError, error } = useQuery(
         trpc.jobs.getById.queryOptions(
             { id: jobId },
             {
@@ -100,7 +106,22 @@ export default function TestResultsPage() {
         )
     );
 
-    if (isLoading) {
+    if (isLoading || isFetching) {
+        return <LoadingState />;
+    }
+
+    if (isError) {
+        const code = (error as { data?: { code?: string } } | undefined)?.data?.code;
+        if (code === "NOT_FOUND") {
+            return (
+                <div className="min-h-screen flex items-center justify-center">
+                    <Card className="p-8 text-center">
+                        <h2 className="text-2xl font-bold mb-2">Job not found</h2>
+                        <p className="text-muted-foreground">This test job does not exist or has been deleted.</p>
+                    </Card>
+                </div>
+            );
+        }
         return <LoadingState />;
     }
 
@@ -404,6 +425,8 @@ function BugCard({ bug }: { bug: Bug }) {
         MEDIUM: "border-chart-3 bg-chart-3/10",
         LOW: "border-muted-foreground bg-muted",
     };
+    const [isExpanded, setIsExpanded] = useState(false);
+    const fixes = bug.suggestedFixes ?? [];
 
     return (
         <Card className={`p-4 border-l-4 ${confidenceColors[bug.confidence as keyof typeof confidenceColors]}`}>
@@ -427,6 +450,54 @@ function BugCard({ bug }: { bug: Bug }) {
                     Found by: <span className="font-mono">{bug.testFile}</span>
                     {bug.testName && <> → {bug.testName}</>}
                 </p>
+            )}
+
+            {fixes.length > 0 && (
+                <div className="mt-4">
+                    <div className="flex items-center justify-between">
+                        <span className="text-sm font-semibold text-card-foreground">Suggested Fixes</span>
+                        <Button variant="ghost" size="sm" onClick={() => setIsExpanded(!isExpanded)}>
+                            {isExpanded ? "Hide" : "Show"} Details
+                        </Button>
+                    </div>
+
+                    {isExpanded && (
+                        <div className="mt-3 space-y-4 border-t pt-4">
+                            {fixes.map((fix, index) => (
+                                <div key={`${fix.filePath}-${index}`} className="space-y-3">
+                                    <div className="flex items-center gap-2">
+                                        <Badge variant="outline" className="capitalize">{fix.type}</Badge>
+                                        <span className="text-xs text-muted-foreground font-mono">{fix.filePath}</span>
+                                    </div>
+
+                                    {fix.type === "modify" && fix.existingSnippet && (
+                                        <div className="space-y-2">
+                                            <div className="text-xs font-semibold text-destructive">Existing (problem)</div>
+                                            <div className="bg-destructive/10 border border-destructive/20 rounded-md p-3">
+                                                <CodeBlock
+                                                    code={fix.existingSnippet}
+                                                    language="javascript"
+                                                    showCopyButton={true}
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className="space-y-2">
+                                        <div className="text-xs font-semibold text-chart-2">Updated (fix)</div>
+                                        <div className="bg-chart-2/10 border border-chart-2/20 rounded-md p-3">
+                                            <CodeBlock
+                                                code={fix.updatedSnippet}
+                                                language="javascript"
+                                                showCopyButton={true}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
             )}
         </Card>
     );
@@ -506,8 +577,6 @@ function TestCard({ test }: { test: Test }) {
         </Card>
     );
 }
-
-
 
 
 

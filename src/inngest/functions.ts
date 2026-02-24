@@ -54,6 +54,12 @@ interface TestAgentState {
         message: string;
         sourceFile?: string;
         rootCause?: string;
+        suggestedFixes?: Array<{
+            type: "modify" | "new";
+            filePath: string;
+            existingSnippet?: string;
+            updatedSnippet: string;
+        }>;
     }>;
 }
 
@@ -135,8 +141,8 @@ export const testAgentFunction = inngest.createFunction(
                 system: TEST_AGENT_PROMPT,
                 model: openai({
                     model: "gpt-4.1-mini",
-                    // baseUrl: process.env.AI_PIPE_URL,
-                    // apiKey: process.env.AI_PIPE_KEY,
+                    baseUrl: process.env.AI_PIPE_URL,
+                    apiKey: process.env.AI_PIPE_KEY,
                     defaultParameters: { temperature: 0.1 },
                 }),
                 tools: [
@@ -227,6 +233,7 @@ export const testAgentFunction = inngest.createFunction(
                     testName: bug.testName,
                     sourceFile: bug.sourceFile,
                     rootCause: bug.rootCause,
+                    suggestedFixes: bug.suggestedFixes as TestAgentState["detectedErrors"][number]["suggestedFixes"],
                 }));
 
                 // Update job with final status and summary
