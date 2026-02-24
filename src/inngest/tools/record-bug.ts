@@ -69,7 +69,9 @@ export const createRecordBugTool = ({ jobId }: RecordBugOptions) => {
                             testFile: params.testFile,
                             testName: params.testName || null,
                             confidence: params.confidence,
-                            suggestedFixes: params.suggestedFixes.length ? params.suggestedFixes : null,
+                            ...(params.suggestedFixes.length > 0 && {
+                                suggestedFixes: params.suggestedFixes
+                            }),
                         },
                     });
 
