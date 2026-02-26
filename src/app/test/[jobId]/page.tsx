@@ -1,8 +1,8 @@
 "use client";
 
 import { useTRPC } from "@/trpc/client";
-import { useQuery } from "@tanstack/react-query";
-import { useParams } from "next/navigation";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { CodeBlock } from "@/components/code-block";
-import { CheckCircle2, XCircle, AlertCircle, ChevronDown, FileEdit, Sparkles } from "lucide-react";
+import { CheckCircle2, XCircle, AlertCircle, ChevronDown, FileEdit, Sparkles, ArrowLeft } from "lucide-react";
 
 // Type guard for suggested fixes
 function parseSuggestedFixes(fixes: unknown): SuggestedFix[] {
@@ -30,16 +30,8 @@ function parseSuggestedFixes(fixes: unknown): SuggestedFix[] {
 }
 
 // Type definitions
-type JobStatus = "PENDING" | "ANALYZING" | "SETTING_UP" | "TESTING" | "COMPLETED" | "FAILED";
 type TestStatus = "PASS" | "FAIL" | "ERROR";
 type BugConfidence = "LOW" | "MEDIUM" | "HIGH";
-
-interface Repository {
-    id: string;
-    repoOwner: string;
-    repoName: string;
-    repoUrl: string;
-}
 
 interface Test {
     id: string;
@@ -83,17 +75,46 @@ interface DiscoveryInfo {
     envVarsNeeded?: string[];
 }
 
-interface ServerInfo {
-    port?: number;
-    sandboxUrl?: string;
-    startCommand?: string;
-    isRunning?: boolean;
-}
-
 export default function TestResultsPage() {
     const params = useParams();
+    const router = useRouter();
+    const searchParams = useSearchParams();
     const jobId = params.jobId as string;
     const trpc = useTRPC();
+    const from = searchParams.get("from");
+    const backHref = from === "dashboard" ? "/dashboard" : "/";
+    const [isOptimisticallyCancelled, setIsOptimisticallyCancelled] = useState(false);
+    const cancelRun = useMutation(
+        trpc.jobs.cancel.mutationOptions({
+            onSuccess: (result) => {
+                if (!result.success) {
+                    setIsOptimisticallyCancelled(false);
+                    toast.error(result.message ?? "Unable to cancel run");
+                    return;
+                }
+                toast.success("Run canceled");
+            },
+            onError: (err) => {
+                toast.error(err.message ?? "Failed to cancel run");
+            },
+        })
+    );
+
+    const handleCancel = () => {
+        if (cancelRun.isPending || isOptimisticallyCancelled) {
+            return;
+        }
+
+        setIsOptimisticallyCancelled(true);
+        cancelRun.mutate(
+            { jobId },
+            {
+                onError: () => {
+                    setIsOptimisticallyCancelled(false);
+                },
+            }
+        );
+    };
 
     // Poll every 2s if job is still running
     const { data: job, isLoading, isFetching, isError, error } = useQuery(
@@ -114,8 +135,18 @@ export default function TestResultsPage() {
         )
     );
 
-    if (isLoading || isFetching) {
-        return <LoadingState />;
+    if (isOptimisticallyCancelled) {
+        return <CancelledState backHref={backHref} />;
+    }
+
+    if (!job && (isLoading || isFetching)) {
+        return (
+            <LoadingState
+                onBack={() => router.push(backHref)}
+                onCancel={handleCancel}
+                isCancelling={cancelRun.isPending}
+            />
+        );
     }
 
     if (isError) {
@@ -130,7 +161,13 @@ export default function TestResultsPage() {
                 </div>
             );
         }
-        return <LoadingState />;
+        return (
+            <LoadingState
+                onBack={() => router.push(backHref)}
+                onCancel={handleCancel}
+                isCancelling={cancelRun.isPending}
+            />
+        );
     }
 
     if (!job) {
@@ -145,9 +182,23 @@ export default function TestResultsPage() {
     }
 
     const isActive = ["PENDING", "ANALYZING", "SETTING_UP", "TESTING"].includes(job.status);
+    const isCancelled =
+        isOptimisticallyCancelled ||
+        job.status === "FAILED" &&
+        (job.summary ?? "").toLowerCase().includes("canceled by user");
+
+    if (isCancelled) {
+        return <CancelledState backHref={backHref} />;
+    }
 
     if (isActive) {
-        return <LoadingState />;
+        return (
+            <LoadingState
+                onBack={() => router.push(backHref)}
+                onCancel={handleCancel}
+                isCancelling={cancelRun.isPending}
+            />
+        );
     }
 
     return (
@@ -155,6 +206,16 @@ export default function TestResultsPage() {
             {/* Header */}
             <div className="bg-card border-b">
                 <div className="container mx-auto px-6 py-6">
+                    <div className="mb-4 flex items-center gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => router.push(backHref)}
+                        >
+                            <ArrowLeft className="mr-1.5 h-4 w-4" />
+                            Back
+                        </Button>
+                    </div>
                     <div className="flex items-center justify-between mb-4">
                         <div>
                             <h1 className="text-3xl font-bold text-foreground">
@@ -344,7 +405,36 @@ export default function TestResultsPage() {
     );
 }
 
-function LoadingState() {
+function CancelledState({ backHref }: { backHref: string }) {
+    return (
+        <div className="min-h-screen bg-background flex items-center justify-center px-6">
+            <Card className="p-8 text-center max-w-lg w-full">
+                <h2 className="text-2xl font-bold mb-2">Job Cancelled</h2>
+                <p className="text-muted-foreground mb-6">
+                    This run was canceled before completion.
+                </p>
+                <div className="flex items-center justify-center gap-2">
+                    <Button asChild variant="outline">
+                        <a href={backHref}>
+                            <ArrowLeft className="mr-1.5 h-4 w-4" />
+                            Back
+                        </a>
+                    </Button>
+                </div>
+            </Card>
+        </div>
+    );
+}
+
+function LoadingState({
+    onBack,
+    onCancel,
+    isCancelling,
+}: {
+    onBack: () => void;
+    onCancel: () => void;
+    isCancelling: boolean;
+}) {
     const funnyMessages = [
         "AI pretending it knows better than you...",
         "Teaching robots to critique humans...",
@@ -388,17 +478,32 @@ function LoadingState() {
     }, [funnyMessages.length]);
 
     return (
-        <div className="min-h-screen bg-background flex items-center justify-center">
-            <div className="relative w-full max-w-2xl px-8">
-                <div className="relative min-h-32 flex items-center justify-center">
-                    {/* Funny message with transition */}
-                    <div
-                        key={currentMessageIndex}
-                        className={`absolute text-2xl font-medium text-foreground text-center transition-all duration-800 ${
-                            isTransitioning ? "animate-fade-up" : "animate-fade-in-up animate-subtle-pulse"
-                        }`}
-                    >
-                        {funnyMessages[currentMessageIndex]}
+        <div className="min-h-screen bg-background">
+            <div className="fixed top-6 left-6 z-20">
+                <Button variant="outline" onClick={onBack}>
+                    <ArrowLeft className="mr-1.5 h-4 w-4" />
+                    Back
+                </Button>
+            </div>
+
+            <div className="flex min-h-screen items-center justify-center px-8">
+                <div className="w-full max-w-2xl text-center">
+                    <div className="relative min-h-24 flex items-center justify-center">
+                        {/* Funny message with transition */}
+                        <div
+                            key={currentMessageIndex}
+                            className={`absolute text-2xl font-medium text-foreground text-center transition-all duration-800 ${
+                                isTransitioning ? "animate-fade-up" : "animate-fade-in-up animate-subtle-pulse"
+                            }`}
+                        >
+                            {funnyMessages[currentMessageIndex]}
+                        </div>
+                    </div>
+
+                    <div className="mt-8 flex items-center justify-center">
+                    <Button variant="destructive" onClick={onCancel} disabled={isCancelling}>
+                        {isCancelling ? "Cancelling..." : "Cancel Job"}
+                    </Button>
                     </div>
                 </div>
             </div>
@@ -707,6 +812,3 @@ function TestCard({ test }: { test: Test }) {
         </Card>
     );
 }
-
-
-

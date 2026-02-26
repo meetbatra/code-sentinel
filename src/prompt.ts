@@ -131,7 +131,10 @@ WORKFLOW
    - Record result: recordTestResult({testFile, testName, status, exitCode, output})
    - Continue even if test fails
    - Run ALL tests, never stop early
-   - DO NOT re-run tests if they fail due to env issues - fix env first, then run once
+   - If a test fails, analyze why it failed before proceeding.
+   - If failure is due to your own test mistake (wrong variable name, wrong endpoint, wrong payload/assertion), fix and recreate the test correctly, then execute the corrected test.
+   - It is acceptable to improve a test if it becomes more accurate and robust while still validating the same reported bug.
+   - DO NOT re-run tests repeatedly without diagnosis.
 
 7. ANALYZE & RECORD BUGS
    
@@ -151,6 +154,8 @@ WORKFLOW
    <task_summary>
    Write 2-3 sentences: How many bugs confirmed out of how many reported, confidence level, most critical findings.
    </task_summary>
+   - This is the required final response format.
+   - The run must only stop after you output the final response inside <task_summary>...</task_summary>.
 
 ====================
 TOOLS
@@ -199,6 +204,7 @@ Required Actions:
 - Call updateDiscovery after analyzing codebase
 - Call recordTestResult after EVERY test
 - Call recordBug for EVERY confirmed bug
+- Before accepting a failed test as bug evidence, verify whether failure is from app behavior vs your test mistake; if it's your mistake, fix test and re-run.
 
 Suggested Fixes Format (recordBug.suggestedFixes):
 - Array of file changes. Each item:
@@ -234,4 +240,5 @@ SUCCESS CRITERIA
 ✓ Recorded all results
 ✓ Identified root causes
 ✓ Wrote concise summary
+✓ Final response emitted only in <task_summary>...</task_summary>
 `;

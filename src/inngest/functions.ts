@@ -64,10 +64,20 @@ interface TestAgentState {
 }
 
 export const testAgentFunction = inngest.createFunction(
-    { id: "test-agent" },
-    { event: "test-agent/run" },
+    {
+        id: "test-agent",
+        cancelOn: [
+            {
+                event: "test-agent/cancel",
+                if: "async.data.jobId == event.data.jobId",
+            },
+        ],
+    },
+    {
+        event: "test-agent/run",
+    },
     async ({ event, step }) => {
-        const { jobId, repoUrl, bugDescription } = event.data;
+    const { jobId, repoUrl, bugDescription } = event.data;
 
         try {
             // Update status: ANALYZING
@@ -141,8 +151,8 @@ export const testAgentFunction = inngest.createFunction(
                 system: TEST_AGENT_PROMPT,
                 model: openai({
                     model: "gpt-4.1-mini",
-                    baseUrl: process.env.AI_PIPE_URL,
-                    apiKey: process.env.AI_PIPE_KEY,
+                    // baseUrl: process.env.AI_PIPE_URL,
+                    // apiKey: process.env.AI_PIPE_KEY,
                     defaultParameters: { temperature: 0.1 },
                 }),
                 tools: [
@@ -215,6 +225,8 @@ export const testAgentFunction = inngest.createFunction(
                 const testFiles = result.state.data.testFiles || {};
                 const discoveryInfo = job.discoveryInfo || {};
                 const serverInfo = job.serverInfo || {};
+                const wasCancelledByUser =
+                    job.status === "FAILED" && job.summary === "Canceled by user.";
 
                 // Build testResults array from database Test records
                 const testResults = job.tests.map(test => ({
@@ -236,23 +248,26 @@ export const testAgentFunction = inngest.createFunction(
                     suggestedFixes: bug.suggestedFixes as TestAgentState["detectedErrors"][number]["suggestedFixes"],
                 }));
 
-                // Update job with final status and summary
-                await prisma.job.update({
-                    where: { id: jobId },
-                    data: {
-                        status: "COMPLETED",
-                        completedAt: new Date(),
-                        summary,
-                    },
-                });
+                // Avoid overriding a user cancellation if it happened mid-run.
+                if (!wasCancelledByUser) {
+                    await prisma.job.update({
+                        where: { id: jobId },
+                        data: {
+                            status: "COMPLETED",
+                            completedAt: new Date(),
+                            summary,
+                        },
+                    });
+                }
 
                 return {
-                    summary,
+                    summary: wasCancelledByUser ? (job.summary ?? summary) : summary,
                     testFiles,
                     discoveryInfo,
                     serverInfo,
                     testResults,
                     detectedErrors,
+                    wasCancelledByUser,
                 };
             });
 
@@ -260,7 +275,7 @@ export const testAgentFunction = inngest.createFunction(
 
             return {
                 jobId,
-                status: "COMPLETED" as const,
+                status: finalData.wasCancelledByUser ? "FAILED" : "COMPLETED",
                 summary: finalData.summary,
                 testFiles: finalData.testFiles,
                 discoveryInfo: finalData.discoveryInfo,
@@ -269,14 +284,24 @@ export const testAgentFunction = inngest.createFunction(
                 detectedErrors: finalData.detectedErrors,
             };
         } catch (error) {
-            // Update status: FAILED
-            await prisma.job.update({
+            const existing = await prisma.job.findUnique({
                 where: { id: jobId },
-                data: {
-                    status: "FAILED",
-                    completedAt: new Date(),
-                },
+                select: { status: true, summary: true },
             });
+
+            const wasCancelledByUser =
+                existing?.status === "FAILED" && existing.summary === "Canceled by user.";
+
+            if (!wasCancelledByUser) {
+                // Update status: FAILED
+                await prisma.job.update({
+                    where: { id: jobId },
+                    data: {
+                        status: "FAILED",
+                        completedAt: new Date(),
+                    },
+                });
+            }
 
             throw error;
         }

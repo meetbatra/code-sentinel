@@ -59,8 +59,8 @@ model Repository {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  jobs Job[]
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobs  Job[]
 
   @@unique([userId, repoOwner, repoName])
   @@index([userId])
@@ -99,8 +99,8 @@ model Job {
 }
 
 model Test {
-  id    String @id @default(uuid())
-  jobId String
+  id           String @id @default(uuid())
+  jobId        String
 
   testFile    String
   testName    String
@@ -113,7 +113,7 @@ model Test {
 
   createdAt DateTime @default(now())
 
-  job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  job        Job        @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
   @@index([jobId])
   @@index([status])

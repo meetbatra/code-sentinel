@@ -8,13 +8,16 @@ import { ThemeToggle } from "@/components/theme-toggle";
 
 export function Header() {
     return (
-        <nav className="flex items-center justify-between px-6 py-6 max-w-6xl mx-auto">
+        <nav className="flex items-center justify-between px-6 py-6 max-w-6xl mx-auto !bg-transparent border-transparent shadow-none backdrop-blur-0">
             <Link href="/" className="flex items-center gap-2">
                 <Image src="/logo.svg" alt="CodeSentinel Logo" width={32} height={32} />
                 <span className="text-xl font-bold text-foreground">CodeSentinel</span>
             </Link>
 
             <div className="flex items-center gap-4">
+                <Button asChild variant="outline" className="rounded-full px-4">
+                    <Link href="/dashboard">Dashboard</Link>
+                </Button>
                 <ThemeToggle />
 
                 <SignedOut>
@@ -38,5 +41,3 @@ export function Header() {
         </nav>
     );
 }
-
-

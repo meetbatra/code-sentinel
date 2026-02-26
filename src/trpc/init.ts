@@ -14,6 +14,7 @@ export const createTRPCContext = cache(async () => {
 });
 
 type Context = Awaited<ReturnType<typeof createTRPCContext>>;
+export type TRPCContext = Context;
 
 // Avoid exporting the entire t-object
 // since it's not very descriptive.
