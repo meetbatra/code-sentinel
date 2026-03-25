@@ -1,8 +1,5 @@
 FROM node:21-slim
 
-# Set Playwright browser path globally (both build and runtime)
-ENV PLAYWRIGHT_BROWSERS_PATH=/usr/local/share/playwright
-
 RUN apt-get update && apt-get install -y \
     git \
     curl \
@@ -33,8 +30,15 @@ RUN apt-get update && apt-get install -y \
 # Install Playwright globally
 RUN npm install -g playwright
 
-# Install Chromium browser with system dependencies in global location
+# Install Chromium browser with system dependencies
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright-global
 RUN npx playwright install chromium --with-deps
+
+# Create symlink so user account can access the browsers
+# E2B runs as 'user', so we ensure the cache path points to global install
+RUN mkdir -p /home/user/.cache && \
+    ln -s /ms-playwright-global /home/user/.cache/ms-playwright && \
+    chown -R 1000:1000 /home/user/.cache
 
 # Copy start script into image ROOT
 COPY run.sh /run.sh
