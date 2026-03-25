@@ -30,7 +30,9 @@ RUN apt-get update && apt-get install -y \
 # Install Playwright globally
 RUN npm install -g playwright
 
-# Install Chromium browser with system dependencies
+# Install Chromium browser with system dependencies in a global location
+# Use PLAYWRIGHT_BROWSERS_PATH to install in /usr/local instead of user cache
+ENV PLAYWRIGHT_BROWSERS_PATH=/usr/local/share/playwright
 RUN npx playwright install chromium --with-deps
 
 # Copy start script into image ROOT
