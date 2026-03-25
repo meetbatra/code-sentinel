@@ -45,4 +45,4 @@ next-env.d.ts
 !README.md
 
 .idea
-/src/generated/prisma
+/src/generated/prismanode_modules/

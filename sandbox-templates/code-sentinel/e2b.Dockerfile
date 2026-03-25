@@ -1,5 +1,8 @@
 FROM node:21-slim
 
+# Set Playwright browser path globally (both build and runtime)
+ENV PLAYWRIGHT_BROWSERS_PATH=/usr/local/share/playwright
+
 RUN apt-get update && apt-get install -y \
     git \
     curl \
@@ -30,9 +33,7 @@ RUN apt-get update && apt-get install -y \
 # Install Playwright globally
 RUN npm install -g playwright
 
-# Install Chromium browser with system dependencies in a global location
-# Use PLAYWRIGHT_BROWSERS_PATH to install in /usr/local instead of user cache
-ENV PLAYWRIGHT_BROWSERS_PATH=/usr/local/share/playwright
+# Install Chromium browser with system dependencies in global location
 RUN npx playwright install chromium --with-deps
 
 # Copy start script into image ROOT
