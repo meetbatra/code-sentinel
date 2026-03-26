@@ -1,10 +1,15 @@
 {
   "scripts": {
     "e2b:build:dev": "npx tsx build.dev.ts",
-    "e2b:build:prod": "npx tsx build.prod.ts"
+    "e2b:build:prod": "npx tsx build.prod.ts",
+    "browser-client": "npx tsx browser-client.ts"
   },
   "dependencies": {
     "dotenv": "^17.2.3",
-    "e2b": "^2.9.0"
+    "e2b": "^2.9.0",
+    "playwright-core": "^1.42.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0"
   }
 }
