@@ -20,6 +20,7 @@ import { createUpdateDiscoveryTool } from "@/inngest/tools/update-discovery";
 import { createUpdateServerInfoTool } from "@/inngest/tools/update-server-info";
 import { createRecordTestResultTool } from "@/inngest/tools/record-test-result";
 import { createRecordBugTool } from "@/inngest/tools/record-bug";
+import { createBrowserActionTool } from "@/inngest/tools/browser-action";
 import { prisma } from "@/lib/prisma";
 
 interface TestAgentState {
@@ -166,6 +167,7 @@ export const testAgentFunction = inngest.createFunction(
                     createUpdateServerInfoTool({ jobId }),
                     createRecordTestResultTool({ jobId }),
                     createRecordBugTool({ jobId }),
+                    createBrowserActionTool({ sandboxId }),
                 ],
                 lifecycle: {
                     onResponse: async ({ result, network }) => {

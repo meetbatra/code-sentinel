@@ -46,4 +46,9 @@ RUN chmod +x /run.sh
 
 WORKDIR /home/user
 
+# Copy package and client
+COPY package.json package-lock.json /home/user/
+RUN npm install
+COPY browser-client.ts /home/user/
+
 CMD ["bash"]
