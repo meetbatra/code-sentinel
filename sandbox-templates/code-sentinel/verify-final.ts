@@ -1,10 +1,11 @@
+import 'dotenv/config';
 import { Sandbox } from 'e2b';
 
 async function verifySandbox() {
   console.log('📦 Creating code-sentinel-dev sandbox...');
   const sandbox = await Sandbox.create('code-sentinel-dev', {
     apiKey: process.env.E2B_API_KEY,
-    timeout: 120000
+    timeoutMs: 120000
   });
   
   console.log(`✅ Sandbox created`);
@@ -14,7 +15,7 @@ async function verifySandbox() {
     console.log('\n🧪 Testing Playwright...');
     const result = await sandbox.commands.run(
       'npx playwright screenshot --browser chromium --timeout 30000 https://example.com /tmp/test.png',
-      { timeout: 60000 }
+      { timeoutMs: 60000 }
     );
     
     console.log('stdout:', result.stdout);
@@ -29,14 +30,18 @@ async function verifySandbox() {
       console.log('Screenshot file:', checkFile.stdout);
     } else {
       console.log('\n❌ FAILED. See errors above.');
+      process.exitCode = 1;
     }
     
   } catch (error) {
-    console.error('\n❌ Error:', error.message);
+    console.error('\n❌ Error:', error instanceof Error ? error.message : String(error));
   } finally {
     console.log('\n🧹 Cleaning up...');
     await sandbox.kill();
   }
 }
 
-verifySandbox();
+verifySandbox().catch((error) => {
+  console.error('Unhandled error during sandbox verification:', error);
+  process.exitCode = 1;
+});

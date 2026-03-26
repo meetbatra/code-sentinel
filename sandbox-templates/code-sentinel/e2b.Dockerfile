@@ -28,7 +28,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Playwright globally
-RUN npm install -g playwright
+RUN npm install -g playwright@1.58.2
 
 # Install Chromium browser with system dependencies
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright-global
