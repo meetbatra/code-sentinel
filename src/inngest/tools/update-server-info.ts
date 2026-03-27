@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { createTool } from "@inngest/agent-kit";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@/generated/prisma";
 
 interface UpdateServerInfoOptions {
     jobId: string;
@@ -11,18 +12,18 @@ export const createUpdateServerInfoTool = ({ jobId }: UpdateServerInfoOptions) =
         name: "updateServerInfo",
         description: "Update server information in state. Supports generic single-server fields and split backend/frontend fields.",
         parameters: z.object({
-            port: z.number().describe("Server port number").default(0),
-            sandboxUrl: z.string().describe("Public sandbox URL").default(""),
-            startCommand: z.string().describe("Command used to start server").default(""),
-            isRunning: z.boolean().describe("Whether server is running").default(false),
-            backendPort: z.number().describe("Backend server port number").default(0),
-            backendUrl: z.string().describe("Backend public URL").default(""),
-            backendStartCommand: z.string().describe("Backend start command").default(""),
-            backendRunning: z.boolean().describe("Whether backend server is running").default(false),
-            frontendPort: z.number().describe("Frontend server port number").default(0),
-            frontendUrl: z.string().describe("Frontend public URL (if available)").default(""),
-            frontendStartCommand: z.string().describe("Frontend start command").default(""),
-            frontendRunning: z.boolean().describe("Whether frontend server is running").default(false),
+            port: z.number().optional().describe("Server port number"),
+            sandboxUrl: z.string().optional().describe("Public sandbox URL"),
+            startCommand: z.string().optional().describe("Command used to start server"),
+            isRunning: z.boolean().optional().describe("Whether server is running"),
+            backendPort: z.number().optional().describe("Backend server port number"),
+            backendUrl: z.string().optional().describe("Backend public URL"),
+            backendStartCommand: z.string().optional().describe("Backend start command"),
+            backendRunning: z.boolean().optional().describe("Whether backend server is running"),
+            frontendPort: z.number().optional().describe("Frontend server port number"),
+            frontendUrl: z.string().optional().describe("Frontend public URL (if available)"),
+            frontendStartCommand: z.string().optional().describe("Frontend start command"),
+            frontendRunning: z.boolean().optional().describe("Whether frontend server is running"),
         }),
         handler: async (params, { step: toolStep, network }) => {
             if (!network) {
@@ -31,33 +32,35 @@ export const createUpdateServerInfoTool = ({ jobId }: UpdateServerInfoOptions) =
 
             try {
                 return await toolStep?.run("update-server-info", async () => {
+                    const raw = params as Record<string, unknown>;
+                    const has = (key: string) => Object.prototype.hasOwnProperty.call(raw, key);
                     const updatesList: string[] = [];
 
-                    if (params.port && params.port > 0) updatesList.push("port");
-                    if (params.sandboxUrl) updatesList.push("sandboxUrl");
-                    if (params.startCommand) updatesList.push("startCommand");
-                    if (params.isRunning !== undefined) updatesList.push("isRunning");
-                    if (params.backendPort && params.backendPort > 0) updatesList.push("backendPort");
-                    if (params.backendUrl) updatesList.push("backendUrl");
-                    if (params.backendStartCommand) updatesList.push("backendStartCommand");
-                    if (params.backendRunning !== undefined) updatesList.push("backendRunning");
-                    if (params.frontendPort && params.frontendPort > 0) updatesList.push("frontendPort");
-                    if (params.frontendUrl) updatesList.push("frontendUrl");
-                    if (params.frontendStartCommand) updatesList.push("frontendStartCommand");
-                    if (params.frontendRunning !== undefined) updatesList.push("frontendRunning");
+                    if (has("port")) updatesList.push("port");
+                    if (has("sandboxUrl")) updatesList.push("sandboxUrl");
+                    if (has("startCommand")) updatesList.push("startCommand");
+                    if (has("isRunning")) updatesList.push("isRunning");
+                    if (has("backendPort")) updatesList.push("backendPort");
+                    if (has("backendUrl")) updatesList.push("backendUrl");
+                    if (has("backendStartCommand")) updatesList.push("backendStartCommand");
+                    if (has("backendRunning")) updatesList.push("backendRunning");
+                    if (has("frontendPort")) updatesList.push("frontendPort");
+                    if (has("frontendUrl")) updatesList.push("frontendUrl");
+                    if (has("frontendStartCommand")) updatesList.push("frontendStartCommand");
+                    if (has("frontendRunning")) updatesList.push("frontendRunning");
 
                     const data = {
-                        port: params.port > 0 ? params.port : undefined,
-                        sandboxUrl: params.sandboxUrl || undefined,
-                        startCommand: params.startCommand || undefined,
+                        port: params.port,
+                        sandboxUrl: params.sandboxUrl,
+                        startCommand: params.startCommand,
                         isRunning: params.isRunning,
-                        backendPort: params.backendPort > 0 ? params.backendPort : undefined,
-                        backendUrl: params.backendUrl || undefined,
-                        backendStartCommand: params.backendStartCommand || undefined,
+                        backendPort: params.backendPort,
+                        backendUrl: params.backendUrl,
+                        backendStartCommand: params.backendStartCommand,
                         backendRunning: params.backendRunning,
-                        frontendPort: params.frontendPort > 0 ? params.frontendPort : undefined,
-                        frontendUrl: params.frontendUrl || undefined,
-                        frontendStartCommand: params.frontendStartCommand || undefined,
+                        frontendPort: params.frontendPort,
+                        frontendUrl: params.frontendUrl,
+                        frontendStartCommand: params.frontendStartCommand,
                         frontendRunning: params.frontendRunning,
                     };
 
@@ -65,18 +68,18 @@ export const createUpdateServerInfoTool = ({ jobId }: UpdateServerInfoOptions) =
                     if (network) {
                         const serverInfo = network.state.data.serverInfo || {};
 
-                        if (data.port) serverInfo.port = data.port;
-                        if (data.sandboxUrl) serverInfo.sandboxUrl = data.sandboxUrl;
-                        if (data.startCommand) serverInfo.startCommand = data.startCommand;
-                        if (data.isRunning !== undefined) serverInfo.isRunning = data.isRunning;
-                        if (data.backendPort) serverInfo.backendPort = data.backendPort;
-                        if (data.backendUrl) serverInfo.backendUrl = data.backendUrl;
-                        if (data.backendStartCommand) serverInfo.backendStartCommand = data.backendStartCommand;
-                        if (data.backendRunning !== undefined) serverInfo.backendRunning = data.backendRunning;
-                        if (data.frontendPort) serverInfo.frontendPort = data.frontendPort;
-                        if (data.frontendUrl) serverInfo.frontendUrl = data.frontendUrl;
-                        if (data.frontendStartCommand) serverInfo.frontendStartCommand = data.frontendStartCommand;
-                        if (data.frontendRunning !== undefined) serverInfo.frontendRunning = data.frontendRunning;
+                        if (has("port")) serverInfo.port = data.port;
+                        if (has("sandboxUrl")) serverInfo.sandboxUrl = data.sandboxUrl;
+                        if (has("startCommand")) serverInfo.startCommand = data.startCommand;
+                        if (has("isRunning")) serverInfo.isRunning = data.isRunning;
+                        if (has("backendPort")) serverInfo.backendPort = data.backendPort;
+                        if (has("backendUrl")) serverInfo.backendUrl = data.backendUrl;
+                        if (has("backendStartCommand")) serverInfo.backendStartCommand = data.backendStartCommand;
+                        if (has("backendRunning")) serverInfo.backendRunning = data.backendRunning;
+                        if (has("frontendPort")) serverInfo.frontendPort = data.frontendPort;
+                        if (has("frontendUrl")) serverInfo.frontendUrl = data.frontendUrl;
+                        if (has("frontendStartCommand")) serverInfo.frontendStartCommand = data.frontendStartCommand;
+                        if (has("frontendRunning")) serverInfo.frontendRunning = data.frontendRunning;
 
                         network.state.data.serverInfo = serverInfo;
                     }
@@ -94,24 +97,34 @@ export const createUpdateServerInfoTool = ({ jobId }: UpdateServerInfoOptions) =
                     // Merge with new data
                     const updatedServerInfo = {
                         ...currentServerInfo,
-                        ...(data.port && { port: data.port }),
-                        ...(data.sandboxUrl && { sandboxUrl: data.sandboxUrl }),
-                        ...(data.startCommand && { startCommand: data.startCommand }),
-                        ...(data.isRunning !== undefined && { isRunning: data.isRunning }),
-                        ...(data.backendPort && { backendPort: data.backendPort }),
-                        ...(data.backendUrl && { backendUrl: data.backendUrl }),
-                        ...(data.backendStartCommand && { backendStartCommand: data.backendStartCommand }),
-                        ...(data.backendRunning !== undefined && { backendRunning: data.backendRunning }),
-                        ...(data.frontendPort && { frontendPort: data.frontendPort }),
-                        ...(data.frontendUrl && { frontendUrl: data.frontendUrl }),
-                        ...(data.frontendStartCommand && { frontendStartCommand: data.frontendStartCommand }),
-                        ...(data.frontendRunning !== undefined && { frontendRunning: data.frontendRunning }),
+                        ...(has("port") && { port: data.port }),
+                        ...(has("sandboxUrl") && { sandboxUrl: data.sandboxUrl }),
+                        ...(has("startCommand") && { startCommand: data.startCommand }),
+                        ...(has("isRunning") && { isRunning: data.isRunning }),
+                        ...(has("backendPort") && { backendPort: data.backendPort }),
+                        ...(has("backendUrl") && { backendUrl: data.backendUrl }),
+                        ...(has("backendStartCommand") && { backendStartCommand: data.backendStartCommand }),
+                        ...(has("backendRunning") && { backendRunning: data.backendRunning }),
+                        ...(has("frontendPort") && { frontendPort: data.frontendPort }),
+                        ...(has("frontendUrl") && { frontendUrl: data.frontendUrl }),
+                        ...(has("frontendStartCommand") && { frontendStartCommand: data.frontendStartCommand }),
+                        ...(has("frontendRunning") && { frontendRunning: data.frontendRunning }),
                     };
 
                     // Save to database
                     await prisma.job.update({
                         where: { id: jobId },
-                        data: { serverInfo: updatedServerInfo },
+                        data: { serverInfo: updatedServerInfo as Prisma.InputJsonValue },
+                    });
+
+                    await prisma.jobRunEvent.create({
+                        data: {
+                            jobId,
+                            eventType: "SERVER",
+                            payload: {
+                                updates: updatesList,
+                            },
+                        },
                     });
 
                     return updatesList.length > 0

@@ -1,9 +1,22 @@
 import { z } from "zod";
 import { createTool } from "@inngest/agent-kit";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@/generated/prisma";
 
 interface UpdateDiscoveryOptions {
     jobId: string;
+}
+
+function dedupeEndpoints(
+    existing: Array<{ method: string; path: string; file: string }>,
+    incoming: Array<{ method: string; path: string; file: string }>
+) {
+    const map = new Map<string, { method: string; path: string; file: string }>();
+    for (const endpoint of [...existing, ...incoming]) {
+        const key = `${endpoint.method.toUpperCase()} ${endpoint.path} ${endpoint.file}`;
+        map.set(key, endpoint);
+    }
+    return Array.from(map.values());
 }
 
 export const createUpdateDiscoveryTool = ({ jobId }: UpdateDiscoveryOptions) => {
@@ -11,22 +24,22 @@ export const createUpdateDiscoveryTool = ({ jobId }: UpdateDiscoveryOptions) => 
         name: "updateDiscovery",
         description: "Update discovery information in state as you learn about the codebase. Supports backend-only and full-stack metadata.",
         parameters: z.object({
-            entryPoint: z.string().describe("Main server file (e.g., 'server.js')").default(""),
-            framework: z.string().describe("Detected framework (e.g., 'express', 'fastify')").default(""),
-            moduleType: z.string().describe("Module system type: 'esm' or 'commonjs'").default(""),
-            backendEntryPoint: z.string().describe("Backend/server entry point for full-stack apps").default(""),
-            frontendEntryPoint: z.string().describe("Frontend entry point for full-stack apps").default(""),
-            backendFramework: z.string().describe("Backend framework (e.g., express, fastify)").default(""),
-            frontendFramework: z.string().describe("Frontend framework (e.g., react, next, ejs views)").default(""),
+            entryPoint: z.string().optional().describe("Main server file (e.g., 'server.js')"),
+            framework: z.string().optional().describe("Detected framework (e.g., 'express', 'fastify')"),
+            moduleType: z.string().optional().describe("Module system type: 'esm' or 'commonjs'"),
+            backendEntryPoint: z.string().optional().describe("Backend/server entry point for full-stack apps"),
+            frontendEntryPoint: z.string().optional().describe("Frontend entry point for full-stack apps"),
+            backendFramework: z.string().optional().describe("Backend framework (e.g., express, fastify)"),
+            frontendFramework: z.string().optional().describe("Frontend framework (e.g., react, next, ejs views)"),
             endpoints: z.array(
                 z.object({
                     method: z.string().describe("HTTP method"),
                     path: z.string().describe("Route path"),
                     file: z.string().describe("File containing route"),
                 })
-            ).describe("Array of discovered endpoints").default([]),
-            envVarsNeeded: z.array(z.string()).describe("Required environment variables").default([]),
-            databaseUsed: z.boolean().describe("Whether database is used").default(false),
+            ).optional().describe("Array of discovered endpoints"),
+            envVarsNeeded: z.array(z.string()).optional().describe("Required environment variables"),
+            databaseUsed: z.boolean().optional().describe("Whether database is used"),
         }),
         handler: async (params, { step: toolStep, network }) => {
             if (!network) {
@@ -35,29 +48,31 @@ export const createUpdateDiscoveryTool = ({ jobId }: UpdateDiscoveryOptions) => 
 
             try {
                 return await toolStep?.run("update-discovery", async () => {
+                    const raw = params as Record<string, unknown>;
+                    const has = (key: string) => Object.prototype.hasOwnProperty.call(raw, key);
                     const updatesList: string[] = [];
 
-                    if (params.entryPoint) updatesList.push("entryPoint");
-                    if (params.framework) updatesList.push("framework");
-                    if (params.moduleType && params.moduleType !== "") updatesList.push("moduleType");
-                    if (params.backendEntryPoint) updatesList.push("backendEntryPoint");
-                    if (params.frontendEntryPoint) updatesList.push("frontendEntryPoint");
-                    if (params.backendFramework) updatesList.push("backendFramework");
-                    if (params.frontendFramework) updatesList.push("frontendFramework");
-                    if (params.endpoints && params.endpoints.length > 0) updatesList.push("endpoints");
-                    if (params.envVarsNeeded && params.envVarsNeeded.length > 0) updatesList.push("envVarsNeeded");
-                    if (params.databaseUsed !== undefined) updatesList.push("databaseUsed");
+                    if (has("entryPoint")) updatesList.push("entryPoint");
+                    if (has("framework")) updatesList.push("framework");
+                    if (has("moduleType")) updatesList.push("moduleType");
+                    if (has("backendEntryPoint")) updatesList.push("backendEntryPoint");
+                    if (has("frontendEntryPoint")) updatesList.push("frontendEntryPoint");
+                    if (has("backendFramework")) updatesList.push("backendFramework");
+                    if (has("frontendFramework")) updatesList.push("frontendFramework");
+                    if (has("endpoints")) updatesList.push("endpoints");
+                    if (has("envVarsNeeded")) updatesList.push("envVarsNeeded");
+                    if (has("databaseUsed")) updatesList.push("databaseUsed");
 
                     const data = {
-                        entryPoint: params.entryPoint || undefined,
-                        framework: params.framework || undefined,
-                        moduleType: params.moduleType || undefined,
-                        backendEntryPoint: params.backendEntryPoint || undefined,
-                        frontendEntryPoint: params.frontendEntryPoint || undefined,
-                        backendFramework: params.backendFramework || undefined,
-                        frontendFramework: params.frontendFramework || undefined,
-                        endpoints: params.endpoints.length > 0 ? params.endpoints : undefined,
-                        envVarsNeeded: params.envVarsNeeded.length > 0 ? params.envVarsNeeded : undefined,
+                        entryPoint: params.entryPoint,
+                        framework: params.framework,
+                        moduleType: params.moduleType,
+                        backendEntryPoint: params.backendEntryPoint,
+                        frontendEntryPoint: params.frontendEntryPoint,
+                        backendFramework: params.backendFramework,
+                        frontendFramework: params.frontendFramework,
+                        endpoints: params.endpoints,
+                        envVarsNeeded: params.envVarsNeeded,
                         databaseUsed: params.databaseUsed,
                     };
 
@@ -65,16 +80,22 @@ export const createUpdateDiscoveryTool = ({ jobId }: UpdateDiscoveryOptions) => 
                     if (network) {
                         const discoveryInfo = network.state.data.discoveryInfo || {};
 
-                        if (data.entryPoint) discoveryInfo.entryPoint = data.entryPoint;
-                        if (data.framework) discoveryInfo.framework = data.framework;
-                        if (data.moduleType) discoveryInfo.moduleType = data.moduleType;
-                        if (data.backendEntryPoint) discoveryInfo.backendEntryPoint = data.backendEntryPoint;
-                        if (data.frontendEntryPoint) discoveryInfo.frontendEntryPoint = data.frontendEntryPoint;
-                        if (data.backendFramework) discoveryInfo.backendFramework = data.backendFramework;
-                        if (data.frontendFramework) discoveryInfo.frontendFramework = data.frontendFramework;
-                        if (data.endpoints) discoveryInfo.endpoints = data.endpoints;
-                        if (data.envVarsNeeded) discoveryInfo.envVarsNeeded = data.envVarsNeeded;
-                        if (data.databaseUsed !== undefined) discoveryInfo.databaseUsed = data.databaseUsed;
+                        if (has("entryPoint")) discoveryInfo.entryPoint = data.entryPoint;
+                        if (has("framework")) discoveryInfo.framework = data.framework;
+                        if (has("moduleType")) discoveryInfo.moduleType = data.moduleType;
+                        if (has("backendEntryPoint")) discoveryInfo.backendEntryPoint = data.backendEntryPoint;
+                        if (has("frontendEntryPoint")) discoveryInfo.frontendEntryPoint = data.frontendEntryPoint;
+                        if (has("backendFramework")) discoveryInfo.backendFramework = data.backendFramework;
+                        if (has("frontendFramework")) discoveryInfo.frontendFramework = data.frontendFramework;
+                        if (has("endpoints")) {
+                            const existing = Array.isArray(discoveryInfo.endpoints)
+                                ? discoveryInfo.endpoints as Array<{ method: string; path: string; file: string }>
+                                : [];
+                            const incoming = Array.isArray(data.endpoints) ? data.endpoints : [];
+                            discoveryInfo.endpoints = dedupeEndpoints(existing, incoming);
+                        }
+                        if (has("envVarsNeeded")) discoveryInfo.envVarsNeeded = data.envVarsNeeded;
+                        if (has("databaseUsed")) discoveryInfo.databaseUsed = data.databaseUsed;
 
                         network.state.data.discoveryInfo = discoveryInfo;
                     }
@@ -90,24 +111,40 @@ export const createUpdateDiscoveryTool = ({ jobId }: UpdateDiscoveryOptions) => 
                         : {};
 
                     // Merge with new data
-                    const updatedDiscoveryInfo = {
+                    const updatedDiscoveryInfo: Record<string, unknown> = {
                         ...currentDiscoveryInfo,
-                        ...(data.entryPoint && { entryPoint: data.entryPoint }),
-                        ...(data.framework && { framework: data.framework }),
-                        ...(data.moduleType && { moduleType: data.moduleType }),
-                        ...(data.backendEntryPoint && { backendEntryPoint: data.backendEntryPoint }),
-                        ...(data.frontendEntryPoint && { frontendEntryPoint: data.frontendEntryPoint }),
-                        ...(data.backendFramework && { backendFramework: data.backendFramework }),
-                        ...(data.frontendFramework && { frontendFramework: data.frontendFramework }),
-                        ...(data.endpoints && { endpoints: data.endpoints }),
-                        ...(data.envVarsNeeded && { envVarsNeeded: data.envVarsNeeded }),
-                        ...(data.databaseUsed !== undefined && { databaseUsed: data.databaseUsed }),
+                        ...(has("entryPoint") && { entryPoint: data.entryPoint }),
+                        ...(has("framework") && { framework: data.framework }),
+                        ...(has("moduleType") && { moduleType: data.moduleType }),
+                        ...(has("backendEntryPoint") && { backendEntryPoint: data.backendEntryPoint }),
+                        ...(has("frontendEntryPoint") && { frontendEntryPoint: data.frontendEntryPoint }),
+                        ...(has("backendFramework") && { backendFramework: data.backendFramework }),
+                        ...(has("frontendFramework") && { frontendFramework: data.frontendFramework }),
+                        ...(has("envVarsNeeded") && { envVarsNeeded: data.envVarsNeeded }),
+                        ...(has("databaseUsed") && { databaseUsed: data.databaseUsed }),
                     };
+                    if (has("endpoints")) {
+                        const existing = Array.isArray(currentDiscoveryInfo.endpoints)
+                            ? currentDiscoveryInfo.endpoints as Array<{ method: string; path: string; file: string }>
+                            : [];
+                        const incoming = Array.isArray(data.endpoints) ? data.endpoints : [];
+                        updatedDiscoveryInfo.endpoints = dedupeEndpoints(existing, incoming);
+                    }
 
                     // Save to database
                     await prisma.job.update({
                         where: { id: jobId },
-                        data: { discoveryInfo: updatedDiscoveryInfo },
+                        data: { discoveryInfo: updatedDiscoveryInfo as Prisma.InputJsonValue },
+                    });
+
+                    await prisma.jobRunEvent.create({
+                        data: {
+                            jobId,
+                            eventType: "DISCOVERY",
+                            payload: {
+                                updates: updatesList,
+                            },
+                        },
                     });
 
                     return updatesList.length > 0

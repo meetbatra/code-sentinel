@@ -23,6 +23,7 @@ import { createRecordTestResultTool } from "@/inngest/tools/record-test-result";
 import { createRecordBugTool } from "@/inngest/tools/record-bug";
 import { createBrowserActionTool } from "@/inngest/tools/browser-action";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@/generated/prisma";
 
 interface TestAgentState {
     jobId: string;
@@ -116,6 +117,26 @@ export const testAgentFunction = inngest.createFunction(
             testingMode?: TestingMode;
             testingScope?: TestingScope;
         };
+        const runStartedMs = Date.now();
+        const setupStartedMs = Date.now();
+        let testStartedMs = 0;
+
+        const logEvent = async (
+            eventType: "STATUS" | "INFRA" | "DISCOVERY" | "SERVER" | "TEST_RESULT" | "BUG" | "SUMMARY" | "ERROR",
+            payload?: Record<string, unknown>
+        ) => {
+            try {
+                await prisma.jobRunEvent.create({
+                    data: {
+                        jobId,
+                        eventType,
+                        payload: (payload || {}) as Prisma.InputJsonValue,
+                    },
+                });
+            } catch {
+                // Best-effort logging only.
+            }
+        };
 
         try {
             // Update status: ANALYZING
@@ -128,6 +149,7 @@ export const testAgentFunction = inngest.createFunction(
                     },
                 });
             });
+            await logEvent("STATUS", { status: "ANALYZING" });
 
             /* ---------------- Sandbox ---------------- */
 
@@ -149,6 +171,7 @@ export const testAgentFunction = inngest.createFunction(
 
                 return sandbox.sandboxId;
             });
+            await logEvent("INFRA", { action: "sandbox_created", sandboxId });
 
             await step.run("clone-repo", async () => {
                 const sandbox = await getSandbox(sandboxId);
@@ -157,6 +180,7 @@ export const testAgentFunction = inngest.createFunction(
             git clone --depth=1 ${repoUrl} repo
           `);
             });
+            await logEvent("INFRA", { action: "repo_cloned", repoUrl });
 
             // Update status: SETTING_UP
             await step.run("update-status-setup", async () => {
@@ -165,6 +189,7 @@ export const testAgentFunction = inngest.createFunction(
                     data: { status: "SETTING_UP" },
                 });
             });
+            await logEvent("STATUS", { status: "SETTING_UP" });
 
             /* ---------------- State ---------------- */
 
@@ -185,6 +210,9 @@ export const testAgentFunction = inngest.createFunction(
                     data: { status: "TESTING" },
                 });
             });
+            await logEvent("STATUS", { status: "TESTING" });
+            const setupDurationMs = Date.now() - setupStartedMs;
+            testStartedMs = Date.now();
 
             /* ---------------- Agent ---------------- */
 
@@ -226,6 +254,7 @@ export const testAgentFunction = inngest.createFunction(
                                 where: { id: jobId },
                                 data: { summary: text },
                             });
+                            await logEvent("SUMMARY", { source: "agent", captured: true });
                         }
 
                         return result;
@@ -249,6 +278,7 @@ export const testAgentFunction = inngest.createFunction(
                 `[TESTING MODE: ${testingMode.toUpperCase()}]\n[TESTING SCOPE: ${testingScope.toUpperCase()}]\n\n${bugDescription}`,
                 { state }
             );
+            const testDurationMs = testStartedMs > 0 ? Date.now() - testStartedMs : 0;
 
             // Final update: Fetch all data from database and update job
             const finalData = await step.run("finalize-and-save", async () => {
@@ -278,7 +308,7 @@ export const testAgentFunction = inngest.createFunction(
                     testFile: test.testFile,
                     testName: test.testName,
                     featureName: test.featureName || undefined,
-                    type: (test.type === "full-stack" ? "full-stack" : "backend") as "backend" | "full-stack",
+                    type: (test.type === "FULL_STACK" ? "full-stack" : "backend") as "backend" | "full-stack",
                     status: test.status,
                     exitCode: test.exitCode,
                     output: test.output,
@@ -300,7 +330,14 @@ export const testAgentFunction = inngest.createFunction(
                     testName: bug.testName,
                     sourceFile: bug.sourceFile,
                     rootCause: bug.rootCause,
-                    affectedLayer: (bug.affectedLayer || undefined) as TestAgentState["detectedErrors"][number]["affectedLayer"],
+                    affectedLayer:
+                        bug.affectedLayer === "FRONTEND"
+                            ? "frontend"
+                            : bug.affectedLayer === "BACKEND"
+                                ? "backend"
+                                : bug.affectedLayer === "BOTH"
+                                    ? "both"
+                                    : undefined,
                     suggestedFixes: bug.suggestedFixes as TestAgentState["detectedErrors"][number]["suggestedFixes"],
                 }));
 
@@ -312,7 +349,23 @@ export const testAgentFunction = inngest.createFunction(
                             status: "COMPLETED",
                             completedAt: new Date(),
                             summary,
+                            setupDurationMs,
+                            testDurationMs,
+                            totalDurationMs: Date.now() - runStartedMs,
+                            totalTests: job.tests.length,
+                            passedTests: job.tests.filter((t) => t.status === "PASS").length,
+                            failedTests: job.tests.filter((t) => t.status === "FAIL").length,
+                            errorTests: job.tests.filter((t) => t.status === "ERROR").length,
+                            totalBugs: job.bugs.length,
                         },
+                    });
+                    await logEvent("STATUS", { status: "COMPLETED" });
+                    await logEvent("SUMMARY", {
+                        totalTests: job.tests.length,
+                        passedTests: job.tests.filter((t) => t.status === "PASS").length,
+                        failedTests: job.tests.filter((t) => t.status === "FAIL").length,
+                        errorTests: job.tests.filter((t) => t.status === "ERROR").length,
+                        totalBugs: job.bugs.length,
                     });
                 }
 
@@ -340,6 +393,9 @@ export const testAgentFunction = inngest.createFunction(
                 detectedErrors: finalData.detectedErrors,
             };
         } catch (error) {
+            await logEvent("ERROR", {
+                message: error instanceof Error ? error.message : "Unknown error",
+            });
             const existing = await prisma.job.findUnique({
                 where: { id: jobId },
                 select: { status: true, summary: true },
@@ -355,8 +411,10 @@ export const testAgentFunction = inngest.createFunction(
                     data: {
                         status: "FAILED",
                         completedAt: new Date(),
+                        totalDurationMs: Date.now() - runStartedMs,
                     },
                 });
+                await logEvent("STATUS", { status: "FAILED" });
             }
 
             throw error;
