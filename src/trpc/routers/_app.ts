@@ -76,6 +76,13 @@ export const appRouter = createTRPCRouter({
               repositoryId: repository.id,
               status: "PENDING",
               bugDescription: input.bugDescription,
+              testingMode: input.testingMode === "deep" ? "DEEP" : "FAST",
+              testingScope:
+                input.testingScope === "backend-only"
+                  ? "BACKEND_ONLY"
+                  : input.testingScope === "full-stack"
+                    ? "FULL_STACK"
+                    : "AUTO",
             },
           });
 

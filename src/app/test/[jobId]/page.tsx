@@ -130,7 +130,14 @@ function parseUiAssertions(value: unknown): UiAssertion[] {
 }
 
 function isFullStackTest(test: Test): test is Test & { type: TestType } {
-    return test.type === "full-stack";
+    return test.type === "full-stack" || test.type === "FULL_STACK";
+}
+
+function formatAffectedLayer(value: string): string {
+    if (value === "FRONTEND" || value === "frontend") return "frontend";
+    if (value === "BACKEND" || value === "backend") return "backend";
+    if (value === "BOTH" || value === "both") return "both";
+    return value;
 }
 
 interface DiscoveryInfo {
@@ -336,18 +343,18 @@ export default function TestResultsPage() {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                         <div className="bg-muted rounded-lg p-4">
                             <div className="text-sm text-muted-foreground mb-1">Total Tests</div>
-                            <div className="text-2xl font-bold">{job.tests.length}</div>
+                            <div className="text-2xl font-bold">{job.totalTests ?? job.tests.length}</div>
                         </div>
                         <div className="bg-chart-2/10 rounded-lg p-4">
                             <div className="text-sm text-chart-2 mb-1">Passed</div>
                             <div className="text-2xl font-bold text-chart-2">
-                                {job.tests.filter(t => t.status === 'PASS').length}
+                                {job.passedTests ?? job.tests.filter(t => t.status === 'PASS').length}
                             </div>
                         </div>
                         <div className="bg-destructive/10 rounded-lg p-4">
                             <div className="text-sm text-destructive mb-1">Failed</div>
                             <div className="text-2xl font-bold text-destructive">
-                                {job.tests.filter(t => t.status === 'FAIL').length}
+                                {(job.failedTests ?? job.tests.filter(t => t.status === 'FAIL').length) + (job.errorTests ?? 0)}
                             </div>
                         </div>
                     </div>
@@ -453,26 +460,10 @@ export default function TestResultsPage() {
                                             <span className="font-medium">{serverInfo.port}</span>
                                         </div>
                                     )}
-                                    {serverInfo.sandboxUrl && (
-                                        <div>
-                                            <span className="text-muted-foreground">Server URL:</span>{' '}
-                                            <code className="text-xs bg-muted px-1.5 py-0.5 rounded">
-                                                {serverInfo.sandboxUrl}
-                                            </code>
-                                        </div>
-                                    )}
                                     {serverInfo.backendPort && (
                                         <div>
                                             <span className="text-muted-foreground">Backend Port:</span>{' '}
                                             <span className="font-medium">{serverInfo.backendPort}</span>
-                                        </div>
-                                    )}
-                                    {serverInfo.backendUrl && (
-                                        <div>
-                                            <span className="text-muted-foreground">Backend URL:</span>{' '}
-                                            <code className="text-xs bg-muted px-1.5 py-0.5 rounded">
-                                                {serverInfo.backendUrl}
-                                            </code>
                                         </div>
                                     )}
                                     {serverInfo.frontendPort && (
@@ -487,24 +478,6 @@ export default function TestResultsPage() {
                                             <code className="text-xs bg-muted px-1.5 py-0.5 rounded">
                                                 {serverInfo.frontendUrl}
                                             </code>
-                                        </div>
-                                    )}
-                                    {serverInfo.isRunning !== undefined && (
-                                        <div>
-                                            <span className="text-muted-foreground">Server Running:</span>{' '}
-                                            <span className="font-medium">{serverInfo.isRunning ? "Yes" : "No"}</span>
-                                        </div>
-                                    )}
-                                    {serverInfo.backendRunning !== undefined && (
-                                        <div>
-                                            <span className="text-muted-foreground">Backend Running:</span>{' '}
-                                            <span className="font-medium">{serverInfo.backendRunning ? "Yes" : "No"}</span>
-                                        </div>
-                                    )}
-                                    {serverInfo.frontendRunning !== undefined && (
-                                        <div>
-                                            <span className="text-muted-foreground">Frontend Running:</span>{' '}
-                                            <span className="font-medium">{serverInfo.frontendRunning ? "Yes" : "No"}</span>
                                         </div>
                                     )}
                                 </div>
@@ -696,14 +669,14 @@ function FullStackEdgeCaseRow({ test }: { test: Test }) {
                                     />
                                 </button>
                             </DialogTrigger>
-                            <DialogContent className="w-[95vw] max-w-7xl p-2">
+                            <DialogContent className="!w-[75vw] !max-w-none h-[75vh] max-h-[75vh] p-1 overflow-hidden">
                                 <DialogTitle className="sr-only">
                                     {`${test.testName} screenshot preview`}
                                 </DialogTitle>
                                 <img
                                     src={test.screenshotUrl}
                                     alt={`${test.testName} full screenshot`}
-                                    className="w-full max-h-[88vh] object-contain rounded-md"
+                                    className="w-full h-full object-contain rounded-md"
                                 />
                             </DialogContent>
                         </Dialog>
@@ -895,7 +868,7 @@ function BugCard({ bug }: { bug: Bug }) {
 
             {bug.affectedLayer && (
                 <p className="text-sm text-card-foreground mb-2">
-                    <strong>Affected Layer:</strong> {bug.affectedLayer}
+                    <strong>Affected Layer:</strong> {formatAffectedLayer(bug.affectedLayer)}
                 </p>
             )}
 

@@ -46,6 +46,10 @@ export const jobsRouter = createTRPCRouter({
             bugs: {
               orderBy: { createdAt: "desc" },
             },
+            events: {
+              orderBy: { createdAt: "asc" },
+              take: 200,
+            },
           },
         });
 
@@ -263,6 +267,8 @@ export const jobsRouter = createTRPCRouter({
           repositoryId: existingJob.repositoryId,
           status: "PENDING",
           bugDescription: existingJob.bugDescription,
+          testingMode: existingJob.testingMode,
+          testingScope: existingJob.testingScope,
         },
       });
 
@@ -274,8 +280,13 @@ export const jobsRouter = createTRPCRouter({
           repositoryId: existingJob.repositoryId,
           repoUrl: existingJob.repository.repoUrl,
           bugDescription: existingJob.bugDescription,
-          testingMode: "fast",
-          testingScope: "auto",
+          testingMode: existingJob.testingMode === "DEEP" ? "deep" : "fast",
+          testingScope:
+            existingJob.testingScope === "BACKEND_ONLY"
+              ? "backend-only"
+              : existingJob.testingScope === "FULL_STACK"
+                ? "full-stack"
+                : "auto",
         },
       });
 

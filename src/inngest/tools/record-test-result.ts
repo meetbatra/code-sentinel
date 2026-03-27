@@ -11,6 +11,7 @@ interface RecordTestResultOptions {
 }
 
 type TestResultStatus = "PASS" | "FAIL" | "ERROR";
+type TestLayer = "BACKEND" | "FULL_STACK";
 
 const testStatusSchema = z.enum(["PASS", "FAIL", "ERROR", "pass", "fail", "error"]);
 
@@ -128,14 +129,37 @@ export const createRecordTestResultTool = ({ jobId, sandboxId }: RecordTestResul
             try {
                 return await toolStep?.run("record-test-result", async () => {
                     const normalizedStatus = params.status.toUpperCase() as TestResultStatus;
+                    const dbTestLayer: TestLayer = params.type === "full-stack" ? "FULL_STACK" : "BACKEND";
+                    const isFullStack = params.type === "full-stack";
                     let screenshotUrl: string | undefined;
+                    let screenshotUploadError: string | undefined;
+                    let screenshotUploadedAt: Date | undefined;
+                    let screenshotStorageProvider: string | undefined;
+                    let uploadDurationMs = 0;
                     const warnings: string[] = [];
+
+                    // Strict enforcement for full-stack screenshot evidence quality.
+                    if (isFullStack) {
+                        if (!params.screenshotPath) {
+                            return "Error: full-stack recordTestResult requires screenshotPath. Capture screenshot right before recording.";
+                        }
+                        if (params.screenshotPath === "/home/user/screenshot.png") {
+                            return "Error: full-stack screenshotPath must be unique per edge case. Do not use /home/user/screenshot.png.";
+                        }
+                        const usedPaths = (network.state.data.usedScreenshotPaths || []) as string[];
+                        if (usedPaths.includes(params.screenshotPath)) {
+                            return `Error: screenshotPath already used in this run (${params.screenshotPath}). Use a unique path per edge case.`;
+                        }
+                        network.state.data.usedScreenshotPaths = [...usedPaths, params.screenshotPath];
+                    }
 
                     if (params.screenshotPath) {
                         if (!sandboxId) {
                             warnings.push("Screenshot upload skipped: sandboxId not available");
+                            screenshotUploadError = "sandboxId not available";
                         } else {
                             try {
+                                const uploadStart = Date.now();
                                 const sandbox = await getSandbox(sandboxId);
                                 const screenshotBytes = await sandbox.files.read(params.screenshotPath, { format: "bytes" });
                                 const featurePart = toSlug(params.featureName || "feature");
@@ -143,14 +167,18 @@ export const createRecordTestResultTool = ({ jobId, sandboxId }: RecordTestResul
                                 const randomPart = Math.random().toString(36).slice(2, 8);
                                 const publicId = `${featurePart}-${testPart}-${Date.now()}-${randomPart}`;
                                 screenshotUrl = await uploadScreenshotToCloudinary(params.screenshotPath, screenshotBytes, publicId);
+                                uploadDurationMs = Date.now() - uploadStart;
+                                screenshotUploadedAt = new Date();
+                                screenshotStorageProvider = "cloudinary";
                             } catch (uploadError) {
+                                uploadDurationMs = uploadDurationMs || 0;
+                                screenshotUploadError =
+                                    uploadError instanceof Error ? uploadError.message : "Unknown error";
                                 warnings.push(
-                                    `Screenshot upload failed: ${uploadError instanceof Error ? uploadError.message : "Unknown error"}`
+                                    `Screenshot upload failed: ${screenshotUploadError}`
                                 );
                             }
                         }
-                    } else if (params.type === "full-stack") {
-                        warnings.push("No screenshotPath provided for full-stack test result");
                     }
 
                     const testData = {
@@ -186,15 +214,49 @@ export const createRecordTestResultTool = ({ jobId, sandboxId }: RecordTestResul
                             testName: params.testName,
                             fileContent: testFileContent,
                             featureName: params.featureName || null,
-                            type: params.type,
+                            type: dbTestLayer,
                             status: normalizedStatus,
                             exitCode: params.exitCode || null,
                             output: params.output || null,
                             screenshotUrl: screenshotUrl || null,
+                            screenshotUploadedAt: screenshotUploadedAt || null,
+                            screenshotUploadError: screenshotUploadError || null,
+                            screenshotStorageProvider: screenshotStorageProvider || null,
                             steps: params.steps || undefined,
                             networkAssertions: params.networkAssertions || undefined,
                             uiAssertions: params.uiAssertions || undefined,
                             executedAt: new Date(),
+                        },
+                    });
+
+                    // Maintain cached run counters + upload timing.
+                    await prisma.job.update({
+                        where: { id: jobId },
+                        data: {
+                            totalTests: { increment: 1 },
+                            ...(normalizedStatus === "PASS"
+                                ? { passedTests: { increment: 1 } }
+                                : normalizedStatus === "FAIL"
+                                    ? { failedTests: { increment: 1 } }
+                                    : { errorTests: { increment: 1 } }),
+                            ...(uploadDurationMs > 0
+                                ? { artifactUploadDurationMs: { increment: uploadDurationMs } }
+                                : {}),
+                        },
+                    });
+
+                    await prisma.jobRunEvent.create({
+                        data: {
+                            jobId,
+                            eventType: "TEST_RESULT",
+                            payload: {
+                                testFile: params.testFile,
+                                testName: params.testName,
+                                status: normalizedStatus,
+                                type: dbTestLayer,
+                                featureName: params.featureName || null,
+                                hasScreenshot: Boolean(screenshotUrl),
+                            },
                         },
                     });
 

@@ -1,10 +1,13 @@
 import { z } from "zod";
 import { createTool } from "@inngest/agent-kit";
 import { prisma } from "@/lib/prisma";
+import { createHash } from "crypto";
 
 interface RecordBugOptions {
     jobId: string;
 }
+
+type BugAffectedLayer = "FRONTEND" | "BACKEND" | "BOTH";
 
 export const createRecordBugTool = ({ jobId }: RecordBugOptions) => {
     return createTool({
@@ -38,6 +41,15 @@ export const createRecordBugTool = ({ jobId }: RecordBugOptions) => {
 
             try {
                 return await toolStep?.run("record-bug", async () => {
+                    const dbAffectedLayer: BugAffectedLayer | null =
+                        params.affectedLayer === "frontend"
+                            ? "FRONTEND"
+                            : params.affectedLayer === "backend"
+                                ? "BACKEND"
+                                : params.affectedLayer === "both"
+                                    ? "BOTH"
+                                    : null;
+
                     // Basic logical validation
                     const invalidFix = params.suggestedFixes.find(
                         (fix) => fix.type === "modify" && !fix.existingSnippet.trim()
@@ -98,6 +110,17 @@ export const createRecordBugTool = ({ jobId }: RecordBugOptions) => {
                     }
 
                     // Save to database (persist suggestedFixes only when present)
+                    const fingerprint = createHash("sha1")
+                        .update(
+                            [
+                                params.sourceFile || "unknown",
+                                params.testName || "unknown",
+                                params.message,
+                                params.rootCause || "",
+                            ].join("|")
+                        )
+                        .digest("hex");
+
                     await prisma.bug.create({
                         data: {
                             jobId,
@@ -107,10 +130,34 @@ export const createRecordBugTool = ({ jobId }: RecordBugOptions) => {
                             testFile: params.testFile,
                             testName: params.testName || null,
                             confidence: params.confidence,
-                            affectedLayer: params.affectedLayer || null,
+                            affectedLayer: dbAffectedLayer,
+                            fingerprint,
                             ...(params.suggestedFixes && params.suggestedFixes.length > 0
                                 ? { suggestedFixes: params.suggestedFixes }
                                 : {}),
+                        },
+                    });
+
+                    await prisma.job.update({
+                        where: { id: jobId },
+                        data: {
+                            totalBugs: { increment: 1 },
+                        },
+                    });
+
+                    await prisma.jobRunEvent.create({
+                        data: {
+                            jobId,
+                            eventType: "BUG",
+                            payload: {
+                                testFile: params.testFile,
+                                testName: params.testName || null,
+                                confidence: params.confidence,
+                                affectedLayer: dbAffectedLayer,
+                                sourceFile: params.sourceFile || null,
+                                message: params.message,
+                                fingerprint,
+                            },
                         },
                     });
 
