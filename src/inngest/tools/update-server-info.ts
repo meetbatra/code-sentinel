@@ -9,12 +9,20 @@ interface UpdateServerInfoOptions {
 export const createUpdateServerInfoTool = ({ jobId }: UpdateServerInfoOptions) => {
     return createTool({
         name: "updateServerInfo",
-        description: "Update server information in state. All fields are optional - only provide what you know.",
+        description: "Update server information in state. Supports generic single-server fields and split backend/frontend fields.",
         parameters: z.object({
             port: z.number().describe("Server port number").default(0),
             sandboxUrl: z.string().describe("Public sandbox URL").default(""),
             startCommand: z.string().describe("Command used to start server").default(""),
             isRunning: z.boolean().describe("Whether server is running").default(false),
+            backendPort: z.number().describe("Backend server port number").default(0),
+            backendUrl: z.string().describe("Backend public URL").default(""),
+            backendStartCommand: z.string().describe("Backend start command").default(""),
+            backendRunning: z.boolean().describe("Whether backend server is running").default(false),
+            frontendPort: z.number().describe("Frontend server port number").default(0),
+            frontendUrl: z.string().describe("Frontend public URL (if available)").default(""),
+            frontendStartCommand: z.string().describe("Frontend start command").default(""),
+            frontendRunning: z.boolean().describe("Whether frontend server is running").default(false),
         }),
         handler: async (params, { step: toolStep, network }) => {
             if (!network) {
@@ -29,12 +37,28 @@ export const createUpdateServerInfoTool = ({ jobId }: UpdateServerInfoOptions) =
                     if (params.sandboxUrl) updatesList.push("sandboxUrl");
                     if (params.startCommand) updatesList.push("startCommand");
                     if (params.isRunning !== undefined) updatesList.push("isRunning");
+                    if (params.backendPort && params.backendPort > 0) updatesList.push("backendPort");
+                    if (params.backendUrl) updatesList.push("backendUrl");
+                    if (params.backendStartCommand) updatesList.push("backendStartCommand");
+                    if (params.backendRunning !== undefined) updatesList.push("backendRunning");
+                    if (params.frontendPort && params.frontendPort > 0) updatesList.push("frontendPort");
+                    if (params.frontendUrl) updatesList.push("frontendUrl");
+                    if (params.frontendStartCommand) updatesList.push("frontendStartCommand");
+                    if (params.frontendRunning !== undefined) updatesList.push("frontendRunning");
 
                     const data = {
                         port: params.port > 0 ? params.port : undefined,
                         sandboxUrl: params.sandboxUrl || undefined,
                         startCommand: params.startCommand || undefined,
                         isRunning: params.isRunning,
+                        backendPort: params.backendPort > 0 ? params.backendPort : undefined,
+                        backendUrl: params.backendUrl || undefined,
+                        backendStartCommand: params.backendStartCommand || undefined,
+                        backendRunning: params.backendRunning,
+                        frontendPort: params.frontendPort > 0 ? params.frontendPort : undefined,
+                        frontendUrl: params.frontendUrl || undefined,
+                        frontendStartCommand: params.frontendStartCommand || undefined,
+                        frontendRunning: params.frontendRunning,
                     };
 
                     // Update agent state
@@ -45,6 +69,14 @@ export const createUpdateServerInfoTool = ({ jobId }: UpdateServerInfoOptions) =
                         if (data.sandboxUrl) serverInfo.sandboxUrl = data.sandboxUrl;
                         if (data.startCommand) serverInfo.startCommand = data.startCommand;
                         if (data.isRunning !== undefined) serverInfo.isRunning = data.isRunning;
+                        if (data.backendPort) serverInfo.backendPort = data.backendPort;
+                        if (data.backendUrl) serverInfo.backendUrl = data.backendUrl;
+                        if (data.backendStartCommand) serverInfo.backendStartCommand = data.backendStartCommand;
+                        if (data.backendRunning !== undefined) serverInfo.backendRunning = data.backendRunning;
+                        if (data.frontendPort) serverInfo.frontendPort = data.frontendPort;
+                        if (data.frontendUrl) serverInfo.frontendUrl = data.frontendUrl;
+                        if (data.frontendStartCommand) serverInfo.frontendStartCommand = data.frontendStartCommand;
+                        if (data.frontendRunning !== undefined) serverInfo.frontendRunning = data.frontendRunning;
 
                         network.state.data.serverInfo = serverInfo;
                     }
@@ -66,6 +98,14 @@ export const createUpdateServerInfoTool = ({ jobId }: UpdateServerInfoOptions) =
                         ...(data.sandboxUrl && { sandboxUrl: data.sandboxUrl }),
                         ...(data.startCommand && { startCommand: data.startCommand }),
                         ...(data.isRunning !== undefined && { isRunning: data.isRunning }),
+                        ...(data.backendPort && { backendPort: data.backendPort }),
+                        ...(data.backendUrl && { backendUrl: data.backendUrl }),
+                        ...(data.backendStartCommand && { backendStartCommand: data.backendStartCommand }),
+                        ...(data.backendRunning !== undefined && { backendRunning: data.backendRunning }),
+                        ...(data.frontendPort && { frontendPort: data.frontendPort }),
+                        ...(data.frontendUrl && { frontendUrl: data.frontendUrl }),
+                        ...(data.frontendStartCommand && { frontendStartCommand: data.frontendStartCommand }),
+                        ...(data.frontendRunning !== undefined && { frontendRunning: data.frontendRunning }),
                     };
 
                     // Save to database

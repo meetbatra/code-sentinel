@@ -19,6 +19,8 @@ export const appRouter = createTRPCRouter({
           repoName: z.string(),
           repoUrl: z.string().url(),
           bugDescription: z.string().min(1),
+          testingMode: z.enum(["fast", "deep"]).default("fast"),
+          testingScope: z.enum(["auto", "backend-only", "full-stack"]).default("auto"),
         })
       )
       .mutation(async ({ input, ctx }) => {
@@ -88,6 +90,8 @@ export const appRouter = createTRPCRouter({
               repositoryId: repository.id,
               repoUrl: input.repoUrl,
               bugDescription: input.bugDescription,
+              testingMode: input.testingMode,
+              testingScope: input.testingScope,
             },
           });
 

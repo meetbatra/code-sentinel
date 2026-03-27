@@ -27,6 +27,8 @@ const Page = () => {
 
     const [selectedRepo, setSelectedRepo] = useState<string>("");
     const [bugDescription, setBugDescription] = useState("");
+    const [testingMode, setTestingMode] = useState<"fast" | "deep">("fast");
+    const [testingScope, setTestingScope] = useState<"auto" | "backend-only" | "full-stack">("auto");
 
     // Fetch user's GitHub repositories
     const { data: repos, isLoading: isLoadingRepos } = useQuery(
@@ -64,6 +66,8 @@ const Page = () => {
             repoName: repo.name,
             repoUrl: repo.cloneUrl,
             bugDescription,
+            testingMode,
+            testingScope,
         });
     };
 
@@ -146,15 +150,16 @@ const Page = () => {
                                 </div>
                             </div>
 
-                            {/* Bug Description + Submit*/}
+                            {/* Bug Description + Submit */}
                             <div>
-                                <div className="rounded-4xl bg-card border-2 border-border/80 px-5 py-4 flex items-center gap-4">
+                                <div className="rounded-4xl bg-card border-2 border-border/80 px-5 pt-4 pb-3 flex flex-col gap-2">
+                                    {/* Top: Textarea */}
                                     <Textarea
                                         placeholder="Example: Signup accepts weak passwords like '123' without validation. Expected: Should reject passwords shorter than 8 characters with 400 status."
                                         value={bugDescription}
                                         onChange={(e) => setBugDescription(e.target.value)}
-                                        rows={3}
-                                        className="flex-1 min-h-24 resize-none text-base border-0 bg-transparent dark:bg-transparent shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-0 py-1"
+                                        rows={2}
+                                        className="min-h-16 max-h-24 overflow-y-auto resize-none text-sm border-0 bg-transparent dark:bg-transparent shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-0 py-1"
                                         onKeyDown={(e) => {
                                             if (
                                                 e.key === "Enter" &&
@@ -172,23 +177,72 @@ const Page = () => {
                                             }
                                         }}
                                     />
-                                    <Button
-                                        type="button"
-                                        onClick={handleRun}
-                                        disabled={
-                                            invokeTestAgent.isPending ||
-                                            !selectedRepo ||
-                                            !bugDescription ||
-                                            !isSignedIn
-                                        }
-                                        className="w-8 h-8 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground p-0 flex items-center justify-center transition-all disabled:opacity-60"
-                                    >
-                                        {invokeTestAgent.isPending ? (
-                                            <Loader2 className="w-4 h-4 animate-spin" />
-                                        ) : (
-                                            <ArrowUp className="w-4 h-4" />
-                                        )}
-                                    </Button>
+                                    {/* Bottom: Mode select + Submit button */}
+                                    <div className="flex items-center justify-between mt-0.5 gap-2">
+                                        <div className="flex items-center gap-2">
+                                            <Select
+                                                value={testingMode}
+                                                onValueChange={(v) => setTestingMode(v as "fast" | "deep")}
+                                            >
+                                                <SelectTrigger className="h-7 rounded-full px-3 text-[11px] font-medium border border-border/60 bg-background/60 shadow-sm w-auto gap-1.5">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent
+                                                    position="popper"
+                                                    align="start"
+                                                    sideOffset={8}
+                                                >
+                                                    <SelectItem value="fast">
+                                                        <span className="font-medium">Fast <span className="font-normal text-muted-foreground">— quick check</span></span>
+                                                    </SelectItem>
+                                                    <SelectItem value="deep">
+                                                        <span className="font-medium">Deep <span className="font-normal text-muted-foreground">— edge cases</span></span>
+                                                    </SelectItem>
+                                                </SelectContent>
+                                            </Select>
+
+                                            <Select
+                                                value={testingScope}
+                                                onValueChange={(v) => setTestingScope(v as "auto" | "backend-only" | "full-stack")}
+                                            >
+                                                <SelectTrigger className="h-7 rounded-full px-3 text-[11px] font-medium border border-border/60 bg-background/60 shadow-sm w-auto gap-1.5">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent
+                                                    position="popper"
+                                                    align="start"
+                                                    sideOffset={8}
+                                                >
+                                                    <SelectItem value="auto">
+                                                        <span className="font-medium">Auto <span className="font-normal text-muted-foreground">— infer</span></span>
+                                                    </SelectItem>
+                                                    <SelectItem value="backend-only">
+                                                        <span className="font-medium">API <span className="font-normal text-muted-foreground">— backend only</span></span>
+                                                    </SelectItem>
+                                                    <SelectItem value="full-stack">
+                                                        <span className="font-medium">Full-stack <span className="font-normal text-muted-foreground">— UI + API</span></span>
+                                                    </SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <Button
+                                            type="button"
+                                            onClick={handleRun}
+                                            disabled={
+                                                invokeTestAgent.isPending ||
+                                                !selectedRepo ||
+                                                !bugDescription ||
+                                                !isSignedIn
+                                            }
+                                            className="w-8 h-8 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground p-0 flex items-center justify-center transition-all disabled:opacity-60"
+                                        >
+                                            {invokeTestAgent.isPending ? (
+                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                            ) : (
+                                                <ArrowUp className="w-4 h-4" />
+                                            )}
+                                        </Button>
+                                    </div>
                                 </div>
                             </div>
                         </div>

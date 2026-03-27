@@ -21,9 +21,22 @@ export const createBrowserActionTool = ({ sandboxId }: BrowserActionToolOptions)
                 "read-console",
                 "wait-for-element",
                 "get-text",
-                "evaluate"
+                "evaluate",
+                "get-network-logs",
+                "clear-network-logs"
             ]).describe("The browser action to perform"),
-            args: z.record(z.string(), z.any()).optional().describe("Arguments specific to the action (e.g. url, selector, text)"),
+            args: z.object({
+                url: z.string().nullable(),
+                selector: z.string().nullable(),
+                text: z.string().nullable(),
+                path: z.string().nullable(),
+                clear: z.boolean().nullable(),
+                timeout: z.number().nullable(),
+                timeoutMs: z.number().nullable(),
+                expression: z.string().nullable(),
+                filter: z.string().nullable(),
+                statusCode: z.number().nullable()
+            }).describe("Arguments specific to the action as a strict object. MUST populate unused fields with null."),
         }),
         handler: async (params, { step: toolStep }) => {
             const { action, args } = params;
@@ -39,7 +52,9 @@ export const createBrowserActionTool = ({ sandboxId }: BrowserActionToolOptions)
                     };
 
                     // Write command to sandbox
-                    await sandbox.files.write('/tmp/browser-command.json', JSON.stringify(command));
+                    // Atomic write to prevent partial-read race conditions in daemon
+                    await sandbox.files.write('/home/user/browser-command.tmp.json', JSON.stringify(command));
+                    await sandbox.commands.run('mv /home/user/browser-command.tmp.json /home/user/browser-command.json');
 
                     // Poll for response (max 30 seconds)
                     const startTime = Date.now();
@@ -47,14 +62,14 @@ export const createBrowserActionTool = ({ sandboxId }: BrowserActionToolOptions)
                     
                     while (Date.now() - startTime < timeoutMs) {
                         try {
-                            const responseContent = await sandbox.files.read('/tmp/browser-response.json');
+                            const responseContent = await sandbox.files.read('/home/user/browser-response.json');
                             if (responseContent) {
                                 const response = JSON.parse(responseContent);
                                 // Ensure we're reading the response for our command
                                 // Or at least that the daemon has written a new response
                                 if (response.id === commandId) {
                                     // Clear response to avoid re-reading
-                                    await sandbox.commands.run(`rm -f /tmp/browser-response.json`);
+                                    await sandbox.commands.run(`rm -f /home/user/browser-response.json`);
                                     return JSON.stringify({
                                         success: response.success,
                                         action,

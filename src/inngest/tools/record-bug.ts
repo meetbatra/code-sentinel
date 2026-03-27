@@ -17,6 +17,7 @@ export const createRecordBugTool = ({ jobId }: RecordBugOptions) => {
             sourceFile: z.string().describe("Source file containing the bug").default(""),
             rootCause: z.string().describe("Explanation of why the bug occurs").default(""),
             confidence: z.enum(["LOW", "MEDIUM", "HIGH"]).describe("Confidence level of the bug detection").default("MEDIUM"),
+            affectedLayer: z.enum(["frontend", "backend", "both"]).optional().describe("Which application layer is impacted"),
             suggestedFixes: z
                 .array(
                     z.object({
@@ -75,7 +76,7 @@ export const createRecordBugTool = ({ jobId }: RecordBugOptions) => {
                         if (totalBytes > MAX_TOTAL) {
                             return `Error recording bug: suggestedFixes total payload too large (${totalBytes} bytes)`;
                         }
-                    } catch (e) {
+                    } catch {
                         return "Error recording bug: could not validate suggestedFixes size";
                     }
 
@@ -84,9 +85,10 @@ export const createRecordBugTool = ({ jobId }: RecordBugOptions) => {
                         testName: params.testName || undefined,
                         message: params.message,
                         sourceFile: params.sourceFile || undefined,
-                        rootCause: params.rootCause || undefined,
-                        suggestedFixes: params.suggestedFixes,
-                    };
+                    rootCause: params.rootCause || undefined,
+                    affectedLayer: params.affectedLayer || undefined,
+                    suggestedFixes: params.suggestedFixes,
+                };
 
                     // Update agent state
                     if (network) {
@@ -105,6 +107,7 @@ export const createRecordBugTool = ({ jobId }: RecordBugOptions) => {
                             testFile: params.testFile,
                             testName: params.testName || null,
                             confidence: params.confidence,
+                            affectedLayer: params.affectedLayer || null,
                             ...(params.suggestedFixes && params.suggestedFixes.length > 0
                                 ? { suggestedFixes: params.suggestedFixes }
                                 : {}),

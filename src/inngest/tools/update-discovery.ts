@@ -9,11 +9,15 @@ interface UpdateDiscoveryOptions {
 export const createUpdateDiscoveryTool = ({ jobId }: UpdateDiscoveryOptions) => {
     return createTool({
         name: "updateDiscovery",
-        description: "Update discovery information in state as you learn about the codebase. All fields are optional - only provide what you've discovered.",
+        description: "Update discovery information in state as you learn about the codebase. Supports backend-only and full-stack metadata.",
         parameters: z.object({
             entryPoint: z.string().describe("Main server file (e.g., 'server.js')").default(""),
             framework: z.string().describe("Detected framework (e.g., 'express', 'fastify')").default(""),
             moduleType: z.string().describe("Module system type: 'esm' or 'commonjs'").default(""),
+            backendEntryPoint: z.string().describe("Backend/server entry point for full-stack apps").default(""),
+            frontendEntryPoint: z.string().describe("Frontend entry point for full-stack apps").default(""),
+            backendFramework: z.string().describe("Backend framework (e.g., express, fastify)").default(""),
+            frontendFramework: z.string().describe("Frontend framework (e.g., react, next, ejs views)").default(""),
             endpoints: z.array(
                 z.object({
                     method: z.string().describe("HTTP method"),
@@ -36,6 +40,10 @@ export const createUpdateDiscoveryTool = ({ jobId }: UpdateDiscoveryOptions) => 
                     if (params.entryPoint) updatesList.push("entryPoint");
                     if (params.framework) updatesList.push("framework");
                     if (params.moduleType && params.moduleType !== "") updatesList.push("moduleType");
+                    if (params.backendEntryPoint) updatesList.push("backendEntryPoint");
+                    if (params.frontendEntryPoint) updatesList.push("frontendEntryPoint");
+                    if (params.backendFramework) updatesList.push("backendFramework");
+                    if (params.frontendFramework) updatesList.push("frontendFramework");
                     if (params.endpoints && params.endpoints.length > 0) updatesList.push("endpoints");
                     if (params.envVarsNeeded && params.envVarsNeeded.length > 0) updatesList.push("envVarsNeeded");
                     if (params.databaseUsed !== undefined) updatesList.push("databaseUsed");
@@ -44,6 +52,10 @@ export const createUpdateDiscoveryTool = ({ jobId }: UpdateDiscoveryOptions) => 
                         entryPoint: params.entryPoint || undefined,
                         framework: params.framework || undefined,
                         moduleType: params.moduleType || undefined,
+                        backendEntryPoint: params.backendEntryPoint || undefined,
+                        frontendEntryPoint: params.frontendEntryPoint || undefined,
+                        backendFramework: params.backendFramework || undefined,
+                        frontendFramework: params.frontendFramework || undefined,
                         endpoints: params.endpoints.length > 0 ? params.endpoints : undefined,
                         envVarsNeeded: params.envVarsNeeded.length > 0 ? params.envVarsNeeded : undefined,
                         databaseUsed: params.databaseUsed,
@@ -56,6 +68,10 @@ export const createUpdateDiscoveryTool = ({ jobId }: UpdateDiscoveryOptions) => 
                         if (data.entryPoint) discoveryInfo.entryPoint = data.entryPoint;
                         if (data.framework) discoveryInfo.framework = data.framework;
                         if (data.moduleType) discoveryInfo.moduleType = data.moduleType;
+                        if (data.backendEntryPoint) discoveryInfo.backendEntryPoint = data.backendEntryPoint;
+                        if (data.frontendEntryPoint) discoveryInfo.frontendEntryPoint = data.frontendEntryPoint;
+                        if (data.backendFramework) discoveryInfo.backendFramework = data.backendFramework;
+                        if (data.frontendFramework) discoveryInfo.frontendFramework = data.frontendFramework;
                         if (data.endpoints) discoveryInfo.endpoints = data.endpoints;
                         if (data.envVarsNeeded) discoveryInfo.envVarsNeeded = data.envVarsNeeded;
                         if (data.databaseUsed !== undefined) discoveryInfo.databaseUsed = data.databaseUsed;
@@ -79,6 +95,10 @@ export const createUpdateDiscoveryTool = ({ jobId }: UpdateDiscoveryOptions) => 
                         ...(data.entryPoint && { entryPoint: data.entryPoint }),
                         ...(data.framework && { framework: data.framework }),
                         ...(data.moduleType && { moduleType: data.moduleType }),
+                        ...(data.backendEntryPoint && { backendEntryPoint: data.backendEntryPoint }),
+                        ...(data.frontendEntryPoint && { frontendEntryPoint: data.frontendEntryPoint }),
+                        ...(data.backendFramework && { backendFramework: data.backendFramework }),
+                        ...(data.frontendFramework && { frontendFramework: data.frontendFramework }),
                         ...(data.endpoints && { endpoints: data.endpoints }),
                         ...(data.envVarsNeeded && { envVarsNeeded: data.envVarsNeeded }),
                         ...(data.databaseUsed !== undefined && { databaseUsed: data.databaseUsed }),

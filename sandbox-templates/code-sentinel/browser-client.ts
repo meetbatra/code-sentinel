@@ -14,12 +14,26 @@ interface BrowserResponse {
   error?: string;
 }
 
-const COMMAND_FILE = '/tmp/browser-command.json';
-const RESPONSE_FILE = '/tmp/browser-response.json';
+interface NetworkLog {
+  id: string;
+  url: string;
+  method: string;
+  headers: Record<string, string>;
+  body?: string | null;
+  statusCode?: number;
+  responseHeaders?: Record<string, string>;
+  responseBody?: any;
+  timestamp: number;
+}
+
+const COMMAND_FILE = '/home/user/browser-command.json';
+const RESPONSE_FILE = '/home/user/browser-response.json';
 
 let browser: Browser | null = null;
 let page: Page | null = null;
 let consoleLogs: string[] = [];
+let networkLogs: NetworkLog[] = [];
+const requestMap = new WeakMap<any, NetworkLog>();
 
 async function setupBrowser() {
   // Try to use globally installed chromium, fallback if needed
@@ -30,16 +44,60 @@ async function setupBrowser() {
   page = await context.newPage();
 
   page.on('console', (msg: any) => {
-    const log = `[${msg.type()}] ${msg.text()}`;
+    const text = msg.text();
+    const log = `[${msg.type()}] ${text.length > 1000 ? text.substring(0, 1000) + '...[truncated]' : text}`;
     consoleLogs.push(log);
-    // Keep max 1000 logs
-    if (consoleLogs.length > 1000) {
+    // Keep max 100 logs
+    if (consoleLogs.length > 100) {
       consoleLogs.shift();
     }
   });
 
   page.on('pageerror', (error: any) => {
     consoleLogs.push(`[error] ${error.message}`);
+  });
+
+  page.on('request', (req: any) => {
+    const postData = req.postData();
+    const log: NetworkLog = {
+      id: Math.random().toString(36).substring(7),
+      url: req.url(),
+      method: req.method(),
+      headers: req.headers(),
+      body: postData ? (postData.length > 2000 ? postData.substring(0, 2000) + '...[truncated]' : postData) : null,
+      timestamp: Date.now()
+    };
+    requestMap.set(req, log);
+    networkLogs.push(log);
+    if (networkLogs.length > 50) {
+      networkLogs.shift();
+    }
+  });
+
+  page.on('response', async (res: any) => {
+    const req = res.request();
+    const log = requestMap.get(req);
+    if (log) {
+      log.statusCode = res.status();
+      log.responseHeaders = res.headers();
+      try {
+        const contentType = res.headers()['content-type'] || '';
+        if (contentType.includes('application/json') || contentType.includes('text/')) {
+          const text = await res.text();
+          if (text.length > 2000) {
+            log.responseBody = text.substring(0, 2000) + '...[truncated]';
+          } else {
+            try {
+              log.responseBody = JSON.parse(text);
+            } catch {
+              log.responseBody = text;
+            }
+          }
+        }
+      } catch (e) {
+        // ignore errors
+      }
+    }
   });
 }
 
@@ -82,7 +140,7 @@ async function handleCommand(command: BrowserCommand) {
         break;
       
       case 'screenshot':
-        const path = args.path || '/tmp/screenshot.png';
+        const path = args.path || '/home/user/screenshot.png';
         await page.screenshot({ path });
         response.success = true;
         response.data = { path };
@@ -112,6 +170,35 @@ async function handleCommand(command: BrowserCommand) {
         response.success = true;
         response.data = { result };
         break;
+
+      case 'get-network-logs':
+        let filteredLogs = networkLogs;
+        if (args.filter) {
+          try {
+            const regex = new RegExp(args.filter);
+            filteredLogs = filteredLogs.filter(log => regex.test(log.url));
+          } catch (e) {
+            // treat as simple string inclusion if invalid regex
+            filteredLogs = filteredLogs.filter(log => log.url.includes(args.filter));
+          }
+        }
+        if (args.statusCode) {
+          const codeStr = String(args.statusCode);
+          if (codeStr.endsWith('xx')) {
+            const prefix = codeStr.substring(0, codeStr.length - 2);
+            filteredLogs = filteredLogs.filter(log => log.statusCode && String(log.statusCode).startsWith(prefix));
+          } else {
+            filteredLogs = filteredLogs.filter(log => log.statusCode === Number(args.statusCode));
+          }
+        }
+        response.success = true;
+        response.data = { logs: filteredLogs };
+        break;
+
+      case 'clear-network-logs':
+        networkLogs = [];
+        response.success = true;
+        break;
         
       default:
         response.error = `Unknown action: ${action}`;
@@ -136,8 +223,7 @@ async function loop() {
           
           await handleCommand(command);
         } catch (e) {
-          console.error("Failed to parse or handle command:", e);
-          fs.unlinkSync(COMMAND_FILE); // delete invalid command
+          // JSON parse failed, likely partial file stream. Wait for the rest to arrive next tick.
         }
       }
     } catch (e) {
