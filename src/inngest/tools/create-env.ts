@@ -13,12 +13,13 @@ const paramsSchema = z.object({
             value: z.string(),
         })
     ),
+    path: z.string().nullable().describe("Relative path from repo root to the .env file. Pass null to default to repo root."),
 });
 
 export const createEnvTool = ({ sandboxId }: CreateEnvToolOptions) => {
     return createTool({
         name: "createEnv",
-        description: "Create or overwrite a .env file inside the repository root",
+        description: "Create or overwrite a .env file at specified path (default: repo root)",
         parameters: paramsSchema,
         handler: async (params, { step: toolStep }) => {
             const parsed = paramsSchema.safeParse(params);
@@ -35,13 +36,13 @@ export const createEnvTool = ({ sandboxId }: CreateEnvToolOptions) => {
             try {
                 const result = await toolStep?.run("createEnv", async () => {
                     const sandbox = await getSandbox(sandboxId);
-                    const fileName = ".env";
+                    const filePath = parsed.data.path || ".env";
 
-                    await sandbox.files.write(`repo/${fileName}`, envContent);
+                    await sandbox.files.write(`repo/${filePath}`, envContent);
 
                     return {
                         status: "env_created",
-                        file: fileName,
+                        file: filePath,
                         vars_written: envVars.map(v => v.key),
                     };
                 });

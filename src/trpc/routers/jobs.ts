@@ -274,6 +274,8 @@ export const jobsRouter = createTRPCRouter({
           repositoryId: existingJob.repositoryId,
           repoUrl: existingJob.repository.repoUrl,
           bugDescription: existingJob.bugDescription,
+          testingMode: "fast",
+          testingScope: "auto",
         },
       });
 

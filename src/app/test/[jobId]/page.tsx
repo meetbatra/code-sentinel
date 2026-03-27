@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { CodeBlock } from "@/components/code-block";
@@ -32,6 +33,22 @@ function parseSuggestedFixes(fixes: unknown): SuggestedFix[] {
 // Type definitions
 type TestStatus = "PASS" | "FAIL" | "ERROR";
 type BugConfidence = "LOW" | "MEDIUM" | "HIGH";
+type TestType = "backend" | "full-stack";
+
+interface NetworkAssertion {
+    url: string;
+    method: string;
+    expectedStatus: number;
+    actualStatus: number;
+    passed: boolean;
+}
+
+interface UiAssertion {
+    selector: string;
+    expected: string;
+    actual: string;
+    passed: boolean;
+}
 
 interface Test {
     id: string;
@@ -42,6 +59,12 @@ interface Test {
     exitCode: number | null;
     output: string | null;
     executedAt: Date | null;
+    type: string;
+    featureName: string | null;
+    screenshotUrl: string | null;
+    steps: unknown;
+    networkAssertions: unknown;
+    uiAssertions: unknown;
 }
 
 interface SuggestedFix {
@@ -60,12 +83,64 @@ interface Bug {
     testFile: string | null;
     testName: string | null;
     suggestedFixes?: unknown;
+    affectedLayer?: string | null;
+}
+
+function parseSteps(value: unknown): string[] {
+    if (!Array.isArray(value)) return [];
+    return value.filter((step): step is string => typeof step === "string");
+}
+
+function parseNetworkAssertions(value: unknown): NetworkAssertion[] {
+    if (!Array.isArray(value)) return [];
+    return value.filter((item): item is NetworkAssertion => {
+        return (
+            typeof item === "object" &&
+            item !== null &&
+            "url" in item &&
+            "method" in item &&
+            "expectedStatus" in item &&
+            "actualStatus" in item &&
+            "passed" in item &&
+            typeof item.url === "string" &&
+            typeof item.method === "string" &&
+            typeof item.expectedStatus === "number" &&
+            typeof item.actualStatus === "number" &&
+            typeof item.passed === "boolean"
+        );
+    });
+}
+
+function parseUiAssertions(value: unknown): UiAssertion[] {
+    if (!Array.isArray(value)) return [];
+    return value.filter((item): item is UiAssertion => {
+        return (
+            typeof item === "object" &&
+            item !== null &&
+            "selector" in item &&
+            "expected" in item &&
+            "actual" in item &&
+            "passed" in item &&
+            typeof item.selector === "string" &&
+            typeof item.expected === "string" &&
+            typeof item.actual === "string" &&
+            typeof item.passed === "boolean"
+        );
+    });
+}
+
+function isFullStackTest(test: Test): test is Test & { type: TestType } {
+    return test.type === "full-stack";
 }
 
 interface DiscoveryInfo {
     framework?: string;
     entryPoint?: string;
     moduleType?: string;
+    backendFramework?: string;
+    frontendFramework?: string;
+    backendEntryPoint?: string;
+    frontendEntryPoint?: string;
     databaseUsed?: boolean;
     endpoints?: Array<{
         method: string;
@@ -73,6 +148,21 @@ interface DiscoveryInfo {
         file: string;
     }>;
     envVarsNeeded?: string[];
+}
+
+interface ServerInfo {
+    port?: number;
+    sandboxUrl?: string;
+    startCommand?: string;
+    isRunning?: boolean;
+    backendPort?: number;
+    backendUrl?: string;
+    backendStartCommand?: string;
+    backendRunning?: boolean;
+    frontendPort?: number;
+    frontendUrl?: string;
+    frontendStartCommand?: string;
+    frontendRunning?: boolean;
 }
 
 export default function TestResultsPage() {
@@ -293,8 +383,10 @@ export default function TestResultsPage() {
                     )}
 
                     {/* Technical Details */}
-                    {job.discoveryInfo && Object.keys(job.discoveryInfo).length > 0 && (() => {
-                        const discoveryInfo = job.discoveryInfo as DiscoveryInfo;
+                    {((job.discoveryInfo && Object.keys(job.discoveryInfo).length > 0) ||
+                        (job.serverInfo && Object.keys(job.serverInfo).length > 0)) && (() => {
+                        const discoveryInfo = (job.discoveryInfo || {}) as DiscoveryInfo;
+                        const serverInfo = (job.serverInfo || {}) as ServerInfo;
                         return (
                             <div className="border-t pt-4 mt-4">
                                 <div className="text-sm font-semibold text-card-foreground mb-3">Technical Details</div>
@@ -319,12 +411,100 @@ export default function TestResultsPage() {
                                             <span className="font-medium">{discoveryInfo.moduleType}</span>
                                         </div>
                                     )}
+                                    {discoveryInfo.backendFramework && (
+                                        <div>
+                                            <span className="text-muted-foreground">Backend Framework:</span>{' '}
+                                            <span className="font-medium">{discoveryInfo.backendFramework}</span>
+                                        </div>
+                                    )}
+                                    {discoveryInfo.frontendFramework && (
+                                        <div>
+                                            <span className="text-muted-foreground">Frontend Framework:</span>{' '}
+                                            <span className="font-medium">{discoveryInfo.frontendFramework}</span>
+                                        </div>
+                                    )}
+                                    {discoveryInfo.backendEntryPoint && (
+                                        <div>
+                                            <span className="text-muted-foreground">Backend Entry:</span>{' '}
+                                            <code className="text-xs bg-muted px-1.5 py-0.5 rounded">
+                                                {discoveryInfo.backendEntryPoint}
+                                            </code>
+                                        </div>
+                                    )}
+                                    {discoveryInfo.frontendEntryPoint && (
+                                        <div>
+                                            <span className="text-muted-foreground">Frontend Entry:</span>{' '}
+                                            <code className="text-xs bg-muted px-1.5 py-0.5 rounded">
+                                                {discoveryInfo.frontendEntryPoint}
+                                            </code>
+                                        </div>
+                                    )}
                                     {discoveryInfo.databaseUsed !== undefined && (
                                         <div>
                                             <span className="text-muted-foreground">Database:</span>{' '}
                                             <span className="font-medium">
                                                 {discoveryInfo.databaseUsed ? 'Yes' : 'No'}
                                             </span>
+                                        </div>
+                                    )}
+                                    {serverInfo.port && (
+                                        <div>
+                                            <span className="text-muted-foreground">Server Port:</span>{' '}
+                                            <span className="font-medium">{serverInfo.port}</span>
+                                        </div>
+                                    )}
+                                    {serverInfo.sandboxUrl && (
+                                        <div>
+                                            <span className="text-muted-foreground">Server URL:</span>{' '}
+                                            <code className="text-xs bg-muted px-1.5 py-0.5 rounded">
+                                                {serverInfo.sandboxUrl}
+                                            </code>
+                                        </div>
+                                    )}
+                                    {serverInfo.backendPort && (
+                                        <div>
+                                            <span className="text-muted-foreground">Backend Port:</span>{' '}
+                                            <span className="font-medium">{serverInfo.backendPort}</span>
+                                        </div>
+                                    )}
+                                    {serverInfo.backendUrl && (
+                                        <div>
+                                            <span className="text-muted-foreground">Backend URL:</span>{' '}
+                                            <code className="text-xs bg-muted px-1.5 py-0.5 rounded">
+                                                {serverInfo.backendUrl}
+                                            </code>
+                                        </div>
+                                    )}
+                                    {serverInfo.frontendPort && (
+                                        <div>
+                                            <span className="text-muted-foreground">Frontend Port:</span>{' '}
+                                            <span className="font-medium">{serverInfo.frontendPort}</span>
+                                        </div>
+                                    )}
+                                    {serverInfo.frontendUrl && (
+                                        <div>
+                                            <span className="text-muted-foreground">Frontend URL:</span>{' '}
+                                            <code className="text-xs bg-muted px-1.5 py-0.5 rounded">
+                                                {serverInfo.frontendUrl}
+                                            </code>
+                                        </div>
+                                    )}
+                                    {serverInfo.isRunning !== undefined && (
+                                        <div>
+                                            <span className="text-muted-foreground">Server Running:</span>{' '}
+                                            <span className="font-medium">{serverInfo.isRunning ? "Yes" : "No"}</span>
+                                        </div>
+                                    )}
+                                    {serverInfo.backendRunning !== undefined && (
+                                        <div>
+                                            <span className="text-muted-foreground">Backend Running:</span>{' '}
+                                            <span className="font-medium">{serverInfo.backendRunning ? "Yes" : "No"}</span>
+                                        </div>
+                                    )}
+                                    {serverInfo.frontendRunning !== undefined && (
+                                        <div>
+                                            <span className="text-muted-foreground">Frontend Running:</span>{' '}
+                                            <span className="font-medium">{serverInfo.frontendRunning ? "Yes" : "No"}</span>
                                         </div>
                                     )}
                                 </div>
@@ -370,25 +550,15 @@ export default function TestResultsPage() {
                             </TabsList>
 
                             <TabsContent value="all" className="space-y-4 mt-4">
-                                {job.tests.map((test) => (
-                                    <TestCard key={test.id} test={test} />
-                                ))}
+                                <TestsPanel tests={job.tests as Test[]} />
                             </TabsContent>
 
                             <TabsContent value="failed" className="space-y-4 mt-4">
-                                {job.tests
-                                    .filter((t) => t.status === "FAIL")
-                                    .map((test) => (
-                                        <TestCard key={test.id} test={test} />
-                                    ))}
+                                <TestsPanel tests={job.tests.filter((t) => t.status === "FAIL") as Test[]} />
                             </TabsContent>
 
                             <TabsContent value="passed" className="space-y-4 mt-4">
-                                {job.tests
-                                    .filter((t) => t.status === "PASS")
-                                    .map((test) => (
-                                        <TestCard key={test.id} test={test} />
-                                    ))}
+                                <TestsPanel tests={job.tests.filter((t) => t.status === "PASS") as Test[]} />
                             </TabsContent>
                         </Tabs>
                     </Card>
@@ -400,6 +570,177 @@ export default function TestResultsPage() {
                         <p className="text-muted-foreground">No tests were generated for this job.</p>
                     </Card>
                 )}
+            </div>
+        </div>
+    );
+}
+
+function TestsPanel({ tests }: { tests: Test[] }) {
+    const backendTests = tests.filter((test) => !isFullStackTest(test));
+    const fullStackTests = tests.filter(isFullStackTest);
+    const backendPass = backendTests.filter((t) => t.status === "PASS").length;
+    const backendFail = backendTests.filter((t) => t.status !== "PASS").length;
+    const browserPass = fullStackTests.filter((t) => t.status === "PASS").length;
+    const browserFail = fullStackTests.filter((t) => t.status !== "PASS").length;
+
+    const toneFor = (pass: number, fail: number) => {
+        if (pass + fail === 0) return "text-muted-foreground";
+        if (fail === 0) return "text-chart-2";
+        if (pass === 0) return "text-destructive";
+        return "text-chart-3";
+    };
+
+    const fullStackByFeature = fullStackTests.reduce((acc, test) => {
+        const feature = test.featureName?.trim() || "Ungrouped Full-Stack Tests";
+        if (!acc.has(feature)) {
+            acc.set(feature, []);
+        }
+        acc.get(feature)?.push(test);
+        return acc;
+    }, new Map<string, Test[]>());
+
+    return (
+        <div className="space-y-6">
+            <div className="text-sm text-muted-foreground flex flex-wrap items-center gap-3">
+                <span>Coverage Summary:</span>
+                <span className={toneFor(browserPass, browserFail)}>
+                    Browser edge cases: {fullStackTests.length} ({browserPass} pass, {browserFail} fail)
+                </span>
+                <span className={toneFor(backendPass, backendFail)}>
+                    API test files: {backendTests.length} ({backendPass} pass, {backendFail} fail)
+                </span>
+            </div>
+
+            {Array.from(fullStackByFeature.entries()).map(([featureName, featureTests]) => (
+                <Card key={featureName} className="p-4">
+                    <div className="flex items-center gap-2 mb-4">
+                        <Badge variant="outline">Browser</Badge>
+                        <h3 className="text-base font-semibold">{featureName}</h3>
+                        <Badge variant="secondary">{featureTests.length} edge case{featureTests.length === 1 ? "" : "s"}</Badge>
+                    </div>
+                    <div className="space-y-3">
+                        {featureTests.map((test) => (
+                            <FullStackEdgeCaseRow key={test.id} test={test} />
+                        ))}
+                    </div>
+                </Card>
+            ))}
+
+            {backendTests.length > 0 && (
+                <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                        <Badge variant="outline">API Test Files</Badge>
+                        <span className="text-sm text-muted-foreground">{backendTests.length} recorded</span>
+                    </div>
+                    {backendTests.map((test) => (
+                        <TestCard key={test.id} test={test} />
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
+function FullStackEdgeCaseRow({ test }: { test: Test }) {
+    const statusConfig = {
+        PASS: {
+            color: "bg-chart-2/20 text-chart-2 border-chart-2",
+            icon: CheckCircle2,
+            symbol: "✓",
+        },
+        FAIL: {
+            color: "bg-destructive/20 text-destructive border-destructive",
+            icon: XCircle,
+            symbol: "✗",
+        },
+        ERROR: {
+            color: "bg-chart-1/20 text-chart-1 border-chart-1",
+            icon: AlertCircle,
+            symbol: "!",
+        },
+    } as const;
+
+    const config = statusConfig[test.status];
+    const StatusIcon = config.icon;
+    const steps = parseSteps(test.steps);
+    const networkAssertions = parseNetworkAssertions(test.networkAssertions);
+    const uiAssertions = parseUiAssertions(test.uiAssertions);
+
+    return (
+        <div className="rounded-lg border p-3">
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+                <Badge className={`${config.color} flex items-center gap-1.5`}>
+                    <StatusIcon className="w-3.5 h-3.5" strokeWidth={2.5} />
+                    {test.status}
+                </Badge>
+                <span className="text-sm font-medium">{test.testName}</span>
+                <span className="text-xs text-muted-foreground font-mono">{test.testFile}</span>
+            </div>
+
+            {steps.length > 0 && (
+                <p className="text-xs text-muted-foreground mb-2">
+                    Steps: {steps.join(" → ")}
+                </p>
+            )}
+
+            <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-3">
+                <div>
+                    {test.screenshotUrl ? (
+                        <Dialog>
+                            <DialogTrigger asChild>
+                                <button className="w-full rounded-md border bg-muted/20 p-1 hover:bg-muted/40 transition-colors">
+                                    <img
+                                        src={test.screenshotUrl}
+                                        alt={`${test.testName} screenshot`}
+                                        className="w-full h-28 object-cover rounded"
+                                    />
+                                </button>
+                            </DialogTrigger>
+                            <DialogContent className="w-[95vw] max-w-7xl p-2">
+                                <DialogTitle className="sr-only">
+                                    {`${test.testName} screenshot preview`}
+                                </DialogTitle>
+                                <img
+                                    src={test.screenshotUrl}
+                                    alt={`${test.testName} full screenshot`}
+                                    className="w-full max-h-[88vh] object-contain rounded-md"
+                                />
+                            </DialogContent>
+                        </Dialog>
+                    ) : (
+                        <div className="w-full h-30 rounded-md border border-dashed flex items-center justify-center text-xs text-muted-foreground">
+                            No screenshot
+                        </div>
+                    )}
+                </div>
+
+                <div className="space-y-2">
+                    {networkAssertions.length > 0 && networkAssertions.map((assertion, index) => (
+                        <p key={`${test.id}-network-${index}`} className="text-xs">
+                            <span className="font-medium">Network:</span>{" "}
+                            {assertion.method.toUpperCase()} {assertion.url} expected {assertion.expectedStatus} got {assertion.actualStatus} {assertion.passed ? "✓" : "✗"}
+                        </p>
+                    ))}
+
+                    {uiAssertions.length > 0 && uiAssertions.map((assertion, index) => (
+                        <p key={`${test.id}-ui-${index}`} className="text-xs">
+                            <span className="font-medium">UI:</span>{" "}
+                            {assertion.selector} expected {`"${assertion.expected}"`} got {`"${assertion.actual}"`} {assertion.passed ? "✓" : "✗"}
+                        </p>
+                    ))}
+
+                    {test.output && (
+                        <p className="text-xs text-muted-foreground">
+                            Output: {test.output}
+                        </p>
+                    )}
+
+                    {(networkAssertions.length === 0 && uiAssertions.length === 0 && !test.output) && (
+                        <p className="text-xs text-muted-foreground">
+                            {config.symbol === "✓" ? "Edge case passed with no additional assertions." : "Edge case failed. Add assertions for richer diagnostics."}
+                        </p>
+                    )}
+                </div>
             </div>
         </div>
     );
@@ -551,6 +892,12 @@ function BugCard({ bug }: { bug: Bug }) {
             </div>
 
             <h3 className="font-semibold text-lg mb-2">{bug.message}</h3>
+
+            {bug.affectedLayer && (
+                <p className="text-sm text-card-foreground mb-2">
+                    <strong>Affected Layer:</strong> {bug.affectedLayer}
+                </p>
+            )}
 
             {bug.rootCause && (
                 <p className="text-sm text-card-foreground mb-3">

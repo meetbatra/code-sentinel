@@ -111,6 +111,13 @@ model Test {
   output     String?    @db.Text
   executedAt DateTime?
 
+  type              String @default("backend")
+  featureName       String?
+  steps             Json?
+  screenshotUrl     String?
+  networkAssertions Json?
+  uiAssertions      Json?
+
   createdAt DateTime @default(now())
 
   job        Job        @relation(fields: [jobId], references: [id], onDelete: Cascade)
@@ -123,10 +130,11 @@ model Bug {
   id    String @id @default(uuid())
   jobId String
 
-  message    String        @db.Text
-  rootCause  String?       @db.Text
-  sourceFile String?
-  confidence BugConfidence
+  message       String        @db.Text
+  rootCause     String?       @db.Text
+  sourceFile    String?
+  confidence    BugConfidence
+  affectedLayer String?
   suggestedFixes Json?
 
   testFile String?

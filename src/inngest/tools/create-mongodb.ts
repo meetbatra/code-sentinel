@@ -12,6 +12,7 @@ const paramsSchema = z.object({
         .string()
         .min(1)
         .regex(/^[A-Z_][A-Z0-9_]*$/, "Invalid env variable name"),
+    path: z.string().nullable().describe("Relative path from repo root to the .env file. Pass null to default to repo root."),
 });
 
 export const createMongoDbTool = ({
@@ -20,7 +21,7 @@ export const createMongoDbTool = ({
     return createTool({
         name: "createMongoDb",
         description:
-            "Provision a temporary MongoDB database and inject its URI into the sandbox .env file using a specified environment variable name",
+            "Provision a temporary MongoDB database and inject its URI into the sandbox .env file at specified path (default: repo root) using a specified environment variable name",
         parameters: paramsSchema,
         handler: async (params, { step: toolStep }) => {
             const parsed = paramsSchema.safeParse(params);
@@ -52,7 +53,7 @@ export const createMongoDbTool = ({
                     const mongoUri = clusterUri.replace("{db_name}", dbName);
 
                     const sandbox = await getSandbox(sandboxId);
-                    const envFilePath = "repo/.env";
+                    const envFilePath = `repo/${parsed.data.path || ".env"}`;
 
                     let existingEnvContent: string;
                     let envExists: boolean;
@@ -94,7 +95,7 @@ export const createMongoDbTool = ({
                         status: "db_created",
                         db_name: dbName,
                         env_var: envVarName,
-                        env_file: ".env",
+                        env_file: parsed.data.path || ".env",
                     };
                 });
 

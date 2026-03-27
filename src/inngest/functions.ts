@@ -4,9 +4,10 @@ import {
     createState,
     createNetwork,
     openai,
+    anthropic,
 } from "@inngest/agent-kit";
 import { Sandbox } from "@e2b/code-interpreter";
-import { SANDBOX_TIMEOUT } from "@/inngest/types";
+import { SANDBOX_TIMEOUT, TestingMode, TestingScope } from "@/inngest/types";
 import { getSandbox } from "@/inngest/utils";
 import { lastAssistantTextMessageContent } from "@/lib/utils";
 import { TEST_AGENT_PROMPT } from "@/prompt";
@@ -31,6 +32,10 @@ interface TestAgentState {
         entryPoint?: string;
         framework?: string;
         moduleType?: string;
+        backendEntryPoint?: string;
+        frontendEntryPoint?: string;
+        backendFramework?: string;
+        frontendFramework?: string;
         endpoints?: Array<{ method: string; path: string; file: string }>;
         envVarsNeeded?: string[];
         databaseUsed?: boolean;
@@ -40,13 +45,38 @@ interface TestAgentState {
         sandboxUrl?: string;
         startCommand?: string;
         isRunning?: boolean;
+        backendPort?: number;
+        backendUrl?: string;
+        backendStartCommand?: string;
+        backendRunning?: boolean;
+        frontendPort?: number;
+        frontendUrl?: string;
+        frontendStartCommand?: string;
+        frontendRunning?: boolean;
     };
     testResults: Array<{
         testFile: string;
         testName: string;
+        featureName?: string;
+        type?: "backend" | "full-stack";
         status: 'PASS' | 'FAIL' | 'ERROR';
         exitCode?: number;
         output?: string;
+        screenshotUrl?: string;
+        steps?: string[];
+        networkAssertions?: Array<{
+            url: string;
+            method: string;
+            expectedStatus: number;
+            actualStatus: number;
+            passed: boolean;
+        }>;
+        uiAssertions?: Array<{
+            selector: string;
+            expected: string;
+            actual: string;
+            passed: boolean;
+        }>;
         executedAt?: string;
     }>;
     detectedErrors: Array<{
@@ -55,6 +85,7 @@ interface TestAgentState {
         message: string;
         sourceFile?: string;
         rootCause?: string;
+        affectedLayer?: "frontend" | "backend" | "both";
         suggestedFixes?: Array<{
             type: "modify" | "new";
             filePath: string;
@@ -78,7 +109,13 @@ export const testAgentFunction = inngest.createFunction(
         event: "test-agent/run",
     },
     async ({ event, step }) => {
-    const { jobId, repoUrl, bugDescription } = event.data;
+        const { jobId, repoUrl, bugDescription, testingMode = "fast", testingScope = "auto" } = event.data as {
+            jobId: string;
+            repoUrl: string;
+            bugDescription: string;
+            testingMode?: TestingMode;
+            testingScope?: TestingScope;
+        };
 
         try {
             // Update status: ANALYZING
@@ -97,6 +134,10 @@ export const testAgentFunction = inngest.createFunction(
             const sandboxId = await step.run("get-sandbox-id", async () => {
                 const sandbox = await Sandbox.create("code-sentinel-dev");
                 await sandbox.setTimeout(SANDBOX_TIMEOUT);
+
+                // Start the browser client daemon in the background
+                // Uses detached execution so it doesn't block Inngest steps
+                await sandbox.commands.run("nohup npm run browser-client > /home/user/browser-client.log 2>&1 &");
 
                 // Save sandbox info to job
                 await prisma.job.update({
@@ -149,12 +190,11 @@ export const testAgentFunction = inngest.createFunction(
 
             const testAgent = createAgent<TestAgentState>({
                 name: "test-agent",
-                system: TEST_AGENT_PROMPT,
+                system: TEST_AGENT_PROMPT(testingMode, testingScope),
                 model: openai({
-                    model: "gpt-4.1-mini",
-                    // baseUrl: process.env.AI_PIPE_URL,
-                    // apiKey: process.env.AI_PIPE_KEY,
-                    defaultParameters: { temperature: 0.1 },
+                    model: "claude-haiku-4.5",
+                    baseUrl: "http://localhost:4141/v1",
+                    apiKey: "",
                 }),
                 tools: [
                     createTerminalTool({ sandboxId }),
@@ -165,7 +205,7 @@ export const testAgentFunction = inngest.createFunction(
                     createGetServerUrlTool({ sandboxId }),
                     createUpdateDiscoveryTool({ jobId }),
                     createUpdateServerInfoTool({ jobId }),
-                    createRecordTestResultTool({ jobId }),
+                    createRecordTestResultTool({ jobId, sandboxId }),
                     createRecordBugTool({ jobId }),
                     createBrowserActionTool({ sandboxId }),
                 ],
@@ -205,7 +245,10 @@ export const testAgentFunction = inngest.createFunction(
                 },
             });
 
-            const result = await network.run(bugDescription, { state });
+            const result = await network.run(
+                `[TESTING MODE: ${testingMode.toUpperCase()}]\n[TESTING SCOPE: ${testingScope.toUpperCase()}]\n\n${bugDescription}`,
+                { state }
+            );
 
             // Final update: Fetch all data from database and update job
             const finalData = await step.run("finalize-and-save", async () => {
@@ -234,9 +277,19 @@ export const testAgentFunction = inngest.createFunction(
                 const testResults = job.tests.map(test => ({
                     testFile: test.testFile,
                     testName: test.testName,
+                    featureName: test.featureName || undefined,
+                    type: (test.type === "full-stack" ? "full-stack" : "backend") as "backend" | "full-stack",
                     status: test.status,
                     exitCode: test.exitCode,
                     output: test.output,
+                    screenshotUrl: test.screenshotUrl || undefined,
+                    steps: Array.isArray(test.steps) ? (test.steps as string[]) : undefined,
+                    networkAssertions: Array.isArray(test.networkAssertions)
+                        ? (test.networkAssertions as TestAgentState["testResults"][number]["networkAssertions"])
+                        : undefined,
+                    uiAssertions: Array.isArray(test.uiAssertions)
+                        ? (test.uiAssertions as TestAgentState["testResults"][number]["uiAssertions"])
+                        : undefined,
                     executedAt: test.createdAt.toISOString(),
                 }));
 
@@ -247,6 +300,7 @@ export const testAgentFunction = inngest.createFunction(
                     testName: bug.testName,
                     sourceFile: bug.sourceFile,
                     rootCause: bug.rootCause,
+                    affectedLayer: (bug.affectedLayer || undefined) as TestAgentState["detectedErrors"][number]["affectedLayer"],
                     suggestedFixes: bug.suggestedFixes as TestAgentState["detectedErrors"][number]["suggestedFixes"],
                 }));
 
