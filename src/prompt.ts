@@ -68,6 +68,7 @@ recordTestResult payload contract:
 - Required: testFile, testName, status, type
 - status: PASS | FAIL | ERROR
 - type: backend | full-stack
+- STRICT PATH RULE: \`testFile\` MUST be repo-relative (e.g., \`tests/test-login.js\`, \`backend/tests/test-signup.js\`). Never pass absolute paths like \`/home/user/repo/tests/test-login.js\`.
 - Full-stack strongly recommended fields per edge case: featureName, screenshotPath, steps[], networkAssertions[], uiAssertions[]
 - IMPORTANT: Pass screenshotPath only (sandbox local file path). The tool uploads internally and stores screenshotUrl.
 
@@ -121,6 +122,7 @@ ${mode === "fast" ? `FAST MODE - Prioritize speed. Get in, confirm the bug, get 
 4. Write Node.js Tests: For each feature, create a separate \`tests/test-xxx.js\` file executing API validation utilizing \`node-fetch\` against \`process.env.BASE_URL\`. Use standard Node \`assert\`. 
    STRICT RULE: Never combine multiple test cases into one file. One test file must contain exactly one test scenario.
    This rule applies in BOTH backend-only mode and full-stack mode (for API test-file validation).
+   PATH RULE: In createOrUpdateFiles, pass repo-relative file paths only (e.g., \`tests/test-xxx.js\`), not \`/home/user/repo/... \`. createOrUpdateFiles already writes under \`repo/\`.
 
 Test file format:
 \\\`\\\`\\\`javascript
@@ -150,6 +152,7 @@ runTest();
 3. Backend API validation is STILL required in full-stack mode:
    - Write and run API test files like backend mode (\`tests/test-*.js\`) against backend endpoints.
    - STRICT RULE: one file = one API test scenario. Never pack multiple API tests into a single file.
+   - PATH RULE: For both createOrUpdateFiles and recordTestResult, use the same repo-relative test path (e.g., \`tests/test-login-validation.js\`), never absolute paths.
    - Record each API test via \`recordTestResult\` with \`type: "backend"\`.
    - Full-stack mode is NOT browser-only. It must include backend test-file evidence + browser evidence.
 4. Start Frontend server:

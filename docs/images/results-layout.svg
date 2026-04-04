@@ -1,0 +1,24 @@
+<svg width="1200" height="760" viewBox="0 0 1200 760" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="760" rx="20" fill="#FDF6EF"/>
+
+  <text x="40" y="52" fill="#5B2F13" font-family="Arial, sans-serif" font-size="30" font-weight="700">Results Page Map</text>
+
+  <rect x="40" y="80" width="1120" height="70" rx="12" fill="#FFFFFF" stroke="#E7C5A3"/>
+  <text x="60" y="124" fill="#5B2F13" font-family="Arial, sans-serif" font-size="18" font-weight="700">1. Header: repo, status, bug prompt</text>
+
+  <rect x="40" y="170" width="1120" height="170" rx="12" fill="#FFFFFF" stroke="#E7C5A3"/>
+  <text x="60" y="205" fill="#5B2F13" font-family="Arial, sans-serif" font-size="18" font-weight="700">2. Test Results Overview</text>
+  <text x="60" y="235" fill="#7A4B2A" font-family="Arial, sans-serif" font-size="16">- Total / Passed / Failed</text>
+  <text x="60" y="260" fill="#7A4B2A" font-family="Arial, sans-serif" font-size="16">- Confirmed bugs summary</text>
+  <text x="60" y="285" fill="#7A4B2A" font-family="Arial, sans-serif" font-size="16">- Analysis summary + technical details</text>
+
+  <rect x="40" y="360" width="1120" height="120" rx="12" fill="#FFFFFF" stroke="#E7C5A3"/>
+  <text x="60" y="400" fill="#5B2F13" font-family="Arial, sans-serif" font-size="18" font-weight="700">3. Detailed Bug Reports</text>
+  <text x="60" y="430" fill="#7A4B2A" font-family="Arial, sans-serif" font-size="16">Confidence, root cause, affected layer, suggested fixes</text>
+
+  <rect x="40" y="500" width="1120" height="220" rx="12" fill="#FFFFFF" stroke="#E7C5A3"/>
+  <text x="60" y="540" fill="#5B2F13" font-family="Arial, sans-serif" font-size="18" font-weight="700">4. Tests</text>
+  <text x="60" y="570" fill="#7A4B2A" font-family="Arial, sans-serif" font-size="16">- Coverage summary (Browser edge cases + API test files)</text>
+  <text x="60" y="595" fill="#7A4B2A" font-family="Arial, sans-serif" font-size="16">- Browser groups first (steps, network/UI assertions, screenshots)</text>
+  <text x="60" y="620" fill="#7A4B2A" font-family="Arial, sans-serif" font-size="16">- API test cards next (output, code, download)</text>
+</svg>
