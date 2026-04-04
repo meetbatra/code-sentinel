@@ -184,6 +184,3 @@ docs/images/
 
 ## Contributing
 PRs are welcome. If you are adding major behavior changes, please also update the README sections for run flow and results layout.
-
-## License
-Add your project license here.
