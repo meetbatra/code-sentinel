@@ -221,8 +221,8 @@ export const testAgentFunction = inngest.createFunction(
                 system: TEST_AGENT_PROMPT(testingMode, testingScope),
                 model: openai({
                     model: "claude-haiku-4.5",
-                    baseUrl: process.env.AI_PIPE_URL,
-                    apiKey: process.env.AI_PIPE_API_KEY,
+                    baseUrl: "http://localhost:4141/v1",
+                    apiKey: "",
                 }),
                 tools: [
                     createTerminalTool({ sandboxId }),
