@@ -1,0 +1,307 @@
+<html class="dark" lang="en"><head></head><body class="bg-background text-on-background font-body selection:bg-primary-container selection:text-on-primary-container">```html
+
+
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>CodeSentinel | HUNT BUGS BEFORE THEY HUNT YOU</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300..700&amp;family=Inter:wght@400;600;800&amp;family=VT323&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "secondary-dim": "#f18000",
+                    "surface-variant": "#202537",
+                    "on-secondary-container": "#fff6f2",
+                    "on-error": "#450900",
+                    "background": "#0a0e1a",
+                    "surface-container-highest": "#202537",
+                    "outline-variant": "#444756",
+                    "on-tertiary": "#5e5f5f",
+                    "on-secondary": "#411e00",
+                    "surface-container-high": "#1a1f2f",
+                    "secondary-fixed-dim": "#ffb379",
+                    "primary-container": "#cafd00",
+                    "tertiary-container": "#ebebeb",
+                    "on-background": "#e2e4f6",
+                    "outline": "#717584",
+                    "primary": "#f3ffca",
+                    "tertiary": "#f9f9f9",
+                    "surface-tint": "#f3ffca",
+                    "on-secondary-fixed-variant": "#7e4000",
+                    "surface-container-low": "#0e1320",
+                    "surface-bright": "#252b3f",
+                    "secondary-fixed": "#ffc69d",
+                    "on-primary-fixed": "#3a4a00",
+                    "secondary-container": "#924c00",
+                    "surface-container-lowest": "#000000",
+                    "tertiary-dim": "#ebebeb",
+                    "inverse-on-surface": "#515463",
+                    "on-primary-container": "#4a5e00",
+                    "tertiary-fixed": "#ffffff",
+                    "on-tertiary-container": "#555757",
+                    "primary-fixed-dim": "#beee00",
+                    "on-surface": "#e2e4f6",
+                    "primary-dim": "#beee00",
+                    "on-error-container": "#ffd2c8",
+                    "error-dim": "#d53d18",
+                    "on-secondary-fixed": "#542900",
+                    "surface": "#0a0e1a",
+                    "on-primary-fixed-variant": "#526900",
+                    "inverse-primary": "#516700",
+                    "primary-fixed": "#cafd00",
+                    "surface-dim": "#0a0e1a",
+                    "error": "#ff7351",
+                    "on-tertiary-fixed": "#4f5051",
+                    "on-primary": "#516700",
+                    "tertiary-fixed-dim": "#f1f1f1",
+                    "on-tertiary-fixed-variant": "#6c6d6e",
+                    "error-container": "#b92902",
+                    "secondary": "#fc8700",
+                    "inverse-surface": "#faf8ff",
+                    "surface-container": "#141928",
+                    "on-surface-variant": "#a7aabb"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0px",
+                    "lg": "0px",
+                    "xl": "0px",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Space Grotesk"],
+                    "body": ["Inter"],
+                    "label": ["Inter"],
+                    "arcade": ["VT323"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .arcade-grid {
+            background-image: linear-gradient(to right, #1a1f2f 1px, transparent 1px), linear-gradient(to bottom, #1a1f2f 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+        .pixel-line {
+            background-image: radial-gradient(#cafd00 2px, transparent 2px);
+            background-size: 10px 10px;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .chunky-shadow-primary { box-shadow: 6px 6px 0px 0px #cafd00; }
+        .steps-4 { transition-timing-function: steps(4); }
+    </style>
+<!-- TopNavBar -->
+<nav class="fixed top-0 w-full z-50 flex justify-between items-center px-6 py-4 bg-[#0a0e1a] shadow-[4px_4px_0px_0px_rgba(202,253,0,1)]">
+<div class="flex items-center gap-8">
+<span class="text-2xl font-black italic text-[#ccff00] uppercase font-['Space_Grotesk'] tracking-tight">CodeSentinel</span>
+<div class="hidden md:flex gap-6">
+<a class="text-white uppercase font-bold hover:bg-[#ccff00] hover:text-black transition-all duration-0 px-2 py-1" href="#">Docs</a>
+<a class="text-white uppercase font-bold hover:bg-[#ccff00] hover:text-black transition-all duration-0 px-2 py-1" href="#">GitHub</a>
+<a class="text-[#ccff00] border-b-4 border-[#ccff00] uppercase font-bold hover:bg-[#ccff00] hover:text-black transition-all duration-0 px-2 py-1" href="#">Dashboard</a>
+</div>
+</div>
+<button class="bg-primary-container text-on-primary-container font-black px-6 py-2 shadow-[4px_4px_0px_0px_rgba(146,76,0,1)] active:translate-y-1 active:shadow-none transition-all duration-0 uppercase">
+            Sign In
+        </button>
+</nav>
+<main class="pt-24">
+<!-- Hero Section -->
+<section class="relative min-h-[921px] flex flex-col items-center justify-center px-6 arcade-grid overflow-hidden">
+<div class="absolute inset-0 bg-gradient-to-b from-transparent to-background pointer-events-none"></div>
+<div class="relative z-10 w-full max-w-5xl text-center space-y-12">
+<h1 class="font-arcade text-6xl md:text-9xl text-primary leading-none tracking-tighter drop-shadow-[0_0_15px_rgba(202,253,0,0.4)]">HUNT BUGS BEFORE<br/>THEY HUNT YOU</h1>
+<div class="relative max-w-3xl mx-auto space-y-4">
+<div class="flex justify-start">
+<div class="bg-surface-container-high px-4 py-2 flex items-center gap-3 border-l-4 border-primary">
+<span class="material-symbols-outlined text-primary" data-icon="terminal">terminal</span>
+<span class="font-headline font-bold text-sm tracking-widest text-primary uppercase">codesentinel / core-engine</span>
+<span class="material-symbols-outlined text-outline" data-icon="expand_more">expand_more</span>
+</div>
+</div>
+<div class="relative group">
+<textarea class="w-full h-64 bg-surface-container-lowest border-4 border-outline-variant focus:border-primary p-6 text-xl font-mono text-on-surface-variant focus:text-primary transition-all duration-0 outline-none shadow-[8px_8px_0px_0px_rgba(26,31,47,1)] focus:shadow-[8px_8px_0px_0px_rgba(202,253,0,0.3)] resize-none pb-20" placeholder="Example: Our login button decided to take a vacation. It clicks, but nothing happens. Find it and bring it back?"></textarea><div class="absolute bottom-6 left-6 flex flex-wrap gap-4">
+<!-- Selection 1: Speed -->
+<div class="relative group/select">
+<button class="flex items-center gap-2 bg-surface-container-high border-2 border-outline-variant px-3 py-1 text-xs font-headline font-bold text-on-surface-variant hover:border-primary hover:text-primary transition-all">
+<span class="uppercase tracking-widest">Fast</span>
+<span class="text-[10px] text-outline">— quick check</span>
+<span class="material-symbols-outlined text-sm" data-icon="expand_more">expand_more</span>
+</button>
+<div class="absolute bottom-full left-0 mb-2 w-48 bg-surface-container-highest border-4 border-primary hidden group-hover/select:block z-50">
+<div class="p-2 hover:bg-primary hover:text-black cursor-pointer text-xs font-headline font-black uppercase tracking-widest text-primary">Fast</div>
+<div class="p-2 hover:bg-primary hover:text-black cursor-pointer text-xs font-headline font-black uppercase tracking-widest text-white">Deep</div>
+</div>
+</div>
+<!-- Selection 2: Inference -->
+<div class="relative group/select">
+<button class="flex items-center gap-2 bg-surface-container-high border-2 border-outline-variant px-3 py-1 text-xs font-headline font-bold text-on-surface-variant hover:border-primary hover:text-primary transition-all">
+<span class="uppercase tracking-widest">Auto</span>
+<span class="text-[10px] text-outline">— infer</span>
+<span class="material-symbols-outlined text-sm" data-icon="expand_more">expand_more</span>
+</button>
+<div class="absolute bottom-full left-0 mb-2 w-48 bg-surface-container-highest border-4 border-primary hidden group-hover/select:block z-50">
+<div class="p-2 hover:bg-primary hover:text-black cursor-pointer text-xs font-headline font-black uppercase tracking-widest text-primary">Auto</div>
+<div class="p-2 hover:bg-primary hover:text-black cursor-pointer text-xs font-headline font-black uppercase tracking-widest text-white">API</div>
+<div class="p-2 hover:bg-primary hover:text-black cursor-pointer text-xs font-headline font-black uppercase tracking-widest text-white">Full-stack</div>
+</div>
+</div>
+</div>
+<button class="absolute -bottom-10 -right-10 w-32 h-32 rounded-full bg-primary-container text-on-primary-container shadow-[8px_8px_0px_0px_rgba(146,76,0,1)] active:translate-x-1 active:translate-y-1 active:shadow-none transition-all duration-0 flex items-center justify-center group-hover:scale-110">
+<span class="material-symbols-outlined text-5xl font-black" data-icon="arrow_forward">arrow_forward</span>
+<span class="absolute -top-4 -left-4 bg-secondary text-white text-[10px] font-black px-2 py-1 rotate-[-12deg] tracking-tighter">START TEST</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Decorative Bits -->
+<div class="absolute bottom-20 left-10 hidden lg:block opacity-20">
+<pre class="font-arcade text-primary text-xs leading-none">01010111 01000001 01010100 01000011 01001000 
+01000100 01001111 01000111 00100000 01000001 
+01000011 01010100 01001001 01010110 01000101
+                </pre>
+</div>
+</section>
+<!-- How the Magic Happens Section (Replacement) -->
+<section class="py-32 px-6 bg-surface-container-low border-y-4 border-surface-container-high">
+<div class="max-w-7xl mx-auto">
+<div class="mb-24 text-center md:text-left">
+<h2 class="font-arcade text-6xl text-white uppercase mb-4 tracking-tighter">How the Magic Happens</h2>
+<div class="w-32 h-4 bg-secondary"></div>
+</div>
+<div class="relative">
+<div class="absolute inset-0 z-0 pointer-events-none hidden lg:block">
+<svg class="w-full h-full" fill="none" viewbox="0 0 1200 400">
+<path d="M50 50 L350 150 L650 50 L950 150" opacity="0.4" stroke="#ccff00" stroke-dasharray="24 24" stroke-width="8"></path>
+</svg>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 relative z-10">
+<!-- Step 1 -->
+<div class="group">
+<div class="relative mb-8">
+<div class="w-24 h-24 bg-surface-container-high border-4 border-outline-variant flex items-center justify-center group-hover:border-[#ccff00] transition-all steps-4">
+<span class="material-symbols-outlined text-5xl text-[#ccff00] group-hover:scale-110 transition-transform" style="font-variation-settings: 'FILL' 1;">terminal</span>
+</div>
+<div class="absolute -top-4 -right-4 bg-[#ccff00] text-black px-3 py-1 font-arcade text-2xl chunky-shadow-primary">01</div>
+</div>
+<h3 class="font-arcade text-2xl text-white mb-4 uppercase">Link Repository</h3>
+<p class="text-on-surface-variant leading-relaxed text-sm">Connect your private or public GitHub repo in one click. We support 40+ languages natively.</p>
+</div>
+<!-- Step 2 -->
+<div class="group mt-0 lg:mt-24">
+<div class="relative mb-8">
+<div class="w-24 h-24 bg-surface-container-high border-4 border-outline-variant flex items-center justify-center group-hover:border-[#ccff00] transition-all steps-4">
+<span class="material-symbols-outlined text-5xl text-[#ccff00] group-hover:scale-110 transition-transform" style="font-variation-settings: 'FILL' 1;">search</span>
+</div>
+<div class="absolute -top-4 -right-4 bg-[#ccff00] text-black px-3 py-1 font-arcade text-2xl chunky-shadow-primary">02</div>
+</div>
+<h3 class="font-arcade text-2xl text-white mb-4 uppercase">Deep Scan</h3>
+<p class="text-on-surface-variant leading-relaxed text-sm">Our AI sentinel shreds through your codebase, looking for pattern-shifts and logical fallacies.</p>
+</div>
+<!-- Step 3 -->
+<div class="group">
+<div class="relative mb-8">
+<div class="w-24 h-24 bg-surface-container-high border-4 border-outline-variant flex items-center justify-center group-hover:border-[#ccff00] transition-all steps-4">
+<span class="material-symbols-outlined text-5xl text-[#ccff00] group-hover:scale-110 transition-transform" style="font-variation-settings: 'FILL' 1;">bug_report</span>
+</div>
+<div class="absolute -top-4 -right-4 bg-[#ccff00] text-black px-3 py-1 font-arcade text-2xl chunky-shadow-primary">03</div>
+</div>
+<h3 class="font-arcade text-2xl text-white mb-4 uppercase">Triangulate</h3>
+<p class="text-on-surface-variant leading-relaxed text-sm">We pinpoint the exact line of code causing friction and suggest a 100% logic-safe fix.</p>
+</div>
+<!-- Step 4 -->
+<div class="group mt-0 lg:mt-24">
+<div class="relative mb-8">
+<div class="w-24 h-24 bg-surface-container-high border-4 border-outline-variant flex items-center justify-center group-hover:border-[#ccff00] transition-all steps-4">
+<span class="material-symbols-outlined text-5xl text-[#ccff00] group-hover:scale-110 transition-transform" style="font-variation-settings: 'FILL' 1;">verified</span>
+</div>
+<div class="absolute -top-4 -right-4 bg-[#ccff00] text-black px-3 py-1 font-arcade text-2xl chunky-shadow-primary">04</div>
+</div>
+<h3 class="font-arcade text-2xl text-white mb-4 uppercase">Deploy Safe</h3>
+<p class="text-on-surface-variant leading-relaxed text-sm">Ship with the confidence of a 90s speedrunner. Your users stay happy, your tech stays solid.</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Core Modules Section -->
+<section class="py-32 px-6">
+<div class="max-w-7xl mx-auto">
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+<!-- Feature Large -->
+<div class="lg:col-span-2 bg-surface-container-high p-12 border-4 border-primary shadow-[12px_12px_0px_0px_rgba(202,253,0,0.1)] flex flex-col justify-between min-h-[500px] group overflow-hidden relative">
+<div class="relative z-10">
+<span class="bg-primary text-on-primary text-[10px] font-black px-2 py-1 uppercase mb-6 inline-block">Advanced Logic Engine</span>
+<h3 class="font-headline text-6xl font-black text-white italic leading-none mb-8">SENTINEL-X<br/>STATIC ANALYZER</h3>
+<p class="text-on-surface-variant text-xl max-w-md">Our proprietary static analysis engine doesn't just find bugs—it predicts where your code will break under massive scale before it even hits staging.</p>
+</div>
+<div class="mt-12 flex gap-4 relative z-10">
+<button class="bg-primary-container text-on-primary-container font-black px-8 py-3 shadow-[6px_6px_0px_0px_rgba(146,76,0,1)] active:translate-y-1 active:shadow-none uppercase">Deploy Analyzer</button>
+<button class="border-4 border-outline-variant text-white font-black px-8 py-3 hover:bg-white hover:text-black transition-all uppercase">Read Paper</button>
+</div>
+<div class="absolute -right-20 -bottom-20 opacity-10 group-hover:opacity-30 transition-opacity">
+<span class="material-symbols-outlined text-[300px]" data-icon="query_stats">query_stats</span>
+</div>
+</div>
+<!-- Feature Grid Right -->
+<div class="space-y-8">
+<div class="bg-surface-container p-8 border-4 border-outline-variant hover:border-secondary transition-all group">
+<div class="flex items-center gap-4 mb-6">
+<div class="bg-secondary p-3">
+<span class="material-symbols-outlined text-white" data-icon="shield_with_heart" data-weight="fill" style="font-variation-settings: 'FILL' 1;">shield_with_heart</span>
+</div>
+<h4 class="font-headline font-black text-white uppercase text-xl">Auto-Healing</h4>
+</div>
+<p class="text-on-surface-variant text-sm">Detected bugs are automatically patched with generated PRs that match your style guide and architecture.</p>
+</div>
+<div class="bg-surface-container p-8 border-4 border-outline-variant hover:border-primary transition-all group">
+<div class="flex items-center gap-4 mb-6">
+<div class="bg-primary-container p-3">
+<span class="material-symbols-outlined text-on-primary-container" data-icon="monitoring" data-weight="fill" style="font-variation-settings: 'FILL' 1;">monitoring</span>
+</div>
+<h4 class="font-headline font-black text-white uppercase text-xl">Leak Detection</h4>
+</div>
+<p class="text-on-surface-variant text-sm">Real-time memory leak identification using synthetic high-load pressure tests across all modules.</p>
+</div>
+<div class="bg-[#000000] p-8 border-4 border-outline-variant flex flex-col items-center justify-center text-center space-y-4">
+<span class="material-symbols-outlined text-secondary text-4xl" data-icon="add_circle">add_circle</span>
+<span class="font-headline font-bold text-white uppercase tracking-widest">Connect More Modules</span>
+<p class="text-xs text-on-surface-variant uppercase tracking-tighter">Explore the Marketplace</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Final CTA Section -->
+<section class="py-32 px-6 border-t-8 border-surface-container-high">
+<div class="max-w-5xl mx-auto bg-primary-container p-16 text-center shadow-[16px_16px_0px_0px_rgba(252,135,0,1)] relative overflow-hidden">
+<div class="relative z-10">
+<h2 class="font-arcade text-7xl text-on-primary-container mb-6 leading-none italic">MISSION READY?</h2>
+<p class="text-on-primary-container font-headline font-bold uppercase tracking-widest mb-12">Level up your deployment pipeline today.</p>
+<div class="flex flex-wrap justify-center gap-6">
+<button class="bg-[#000000] text-primary-container font-black text-xl px-12 py-6 shadow-[8px_8px_0px_0px_rgba(146,76,0,1)] hover:-translate-x-1 hover:-translate-y-1 hover:shadow-[12px_12px_0px_0px_rgba(146,76,0,1)] transition-all uppercase">Get Started Free</button>
+</div>
+</div>
+<div class="absolute top-0 left-0 w-full h-full opacity-5 pointer-events-none arcade-grid"></div>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="w-full border-t-4 border-[#1a1f2f] bg-[#000000] flex flex-col md:flex-row justify-between items-center px-8 py-12 gap-6">
+<div class="flex items-center gap-4">
+<span class="text-[#ccff00] font-black text-xl font-['Space_Grotesk'] uppercase tracking-tight">CodeSentinel</span>
+<span class="text-gray-500 font-['Space_Grotesk'] uppercase text-xs tracking-widest">© 2024 CODESENTINEL. INSERT COIN TO CONTINUE.</span>
+</div>
+<div class="flex gap-8">
+<a class="text-gray-500 font-['Space_Grotesk'] uppercase text-xs tracking-widest hover:text-white transition-colors duration-75" href="#">Privacy</a>
+<a class="text-gray-500 font-['Space_Grotesk'] uppercase text-xs tracking-widest hover:text-white transition-colors duration-75" href="#">Terms</a>
+<a class="text-gray-500 font-['Space_Grotesk'] uppercase text-xs tracking-widest hover:text-white transition-colors duration-75" href="#">Security</a>
+<a class="text-[#ccff00] font-['Space_Grotesk'] uppercase text-xs tracking-widest hover:text-white transition-colors duration-75" href="#">Status</a>
+</div>
+</footer>
+```</body></html>

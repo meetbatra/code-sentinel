@@ -145,9 +145,10 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  --font-sans: var(--font-sans);
+  --font-sans: var(--font-plus-jakarta-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-mono);
   --font-serif: var(--font-serif);
+  --font-display: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -162,6 +163,42 @@
   --shadow-lg: var(--shadow-lg);
   --shadow-xl: var(--shadow-xl);
   --shadow-2xl: var(--shadow-2xl);
+
+  --color-secondary-dim: #f18000;
+  --color-surface-variant: #202537;
+  --color-on-secondary-container: #fff6f2;
+  --color-on-error: #450900;
+  --color-background-arcade: #0a0e1a;
+  --color-surface-container-highest: #202537;
+  --color-outline-variant: #444756;
+  --color-on-tertiary: #5e5f5f;
+  --color-on-secondary: #411e00;
+  --color-surface-container-high: #1a1f2f;
+  --color-secondary-fixed-dim: #ffb379;
+  --color-primary-container-arcade: #cafd00;
+  --color-tertiary-container: #ebebeb;
+  --color-on-background-arcade: #e2e4f6;
+  --color-outline-arcade: #717584;
+  --color-primary-arcade: #f3ffca;
+  --color-surface-tint: #f3ffca;
+  --color-surface-container-low: #0e1320;
+  --color-surface-bright: #252b3f;
+  --color-secondary-fixed: #ffc69d;
+  --color-secondary-container-arcade: #924c00;
+  --color-surface-container-lowest: #000000;
+  --color-on-surface-arcade: #e2e4f6;
+  --color-primary-dim: #beee00;
+  --color-on-secondary-fixed: #542900;
+  --color-surface: #0a0e1a;
+  --color-secondary-arcade: #fc8700;
+  --color-surface-container: #141928;
+  --color-on-surface-variant-arcade: #a7aabb;
+  --color-on-primary-container-arcade: #4a5e00;
+
+  --font-headline: var(--font-space-grotesk);
+  --font-body: var(--font-inter);
+  --font-label: var(--font-inter);
+  --font-arcade: var(--font-vt323);
 }
 
 @layer base {
@@ -227,6 +264,20 @@
   .animate-subtle-pulse {
     animation: subtle-pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   }
+
+  .arcade-grid {
+      background-image: linear-gradient(to right, #1a1f2f 1px, transparent 1px), linear-gradient(to bottom, #1a1f2f 1px, transparent 1px);
+      background-size: 40px 40px;
+  }
+  .pixel-line {
+      background-image: radial-gradient(#cafd00 2px, transparent 2px);
+      background-size: 10px 10px;
+  }
+  .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  }
+  .chunky-shadow-primary { box-shadow: 6px 6px 0px 0px #cafd00; }
+  .steps-4 { transition-timing-function: steps(4); }
 }
 
 /* Prism.js theme customization */

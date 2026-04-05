@@ -1,26 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTRPC } from "@/trpc/client";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { useUser } from "@clerk/nextjs";
-import Image from "next/image";
-import { ArrowUp, Loader2 } from "lucide-react";
+import { SignInButton, useUser, UserButton } from "@clerk/nextjs";
+import Link from "next/link";
+import { Loader2, Search, X, GitBranch } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Card } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-
-const Page = () => {
+export default function Page() {
     const trpc = useTRPC();
     const router = useRouter();
     const { isSignedIn } = useUser();
@@ -30,11 +19,40 @@ const Page = () => {
     const [testingMode, setTestingMode] = useState<"fast" | "deep">("fast");
     const [testingScope, setTestingScope] = useState<"auto" | "backend-only" | "full-stack">("auto");
 
+    // Dropdown open states
+    const [modeOpen, setModeOpen] = useState(false);
+    const [scopeOpen, setScopeOpen] = useState(false);
+    const [repoModalOpen, setRepoModalOpen] = useState(false);
+    const [repoSearch, setRepoSearch] = useState("");
+
+    const modeRef = useRef<HTMLDivElement>(null);
+    const scopeRef = useRef<HTMLDivElement>(null);
+
+    // Close dropdowns on outside click
+    useEffect(() => {
+        const handler = (e: MouseEvent) => {
+            if (modeRef.current && !modeRef.current.contains(e.target as Node)) setModeOpen(false);
+            if (scopeRef.current && !scopeRef.current.contains(e.target as Node)) setScopeOpen(false);
+        };
+        document.addEventListener("mousedown", handler);
+        return () => document.removeEventListener("mousedown", handler);
+    }, []);
+
+    // Lock body scroll when repo modal is open
+    useEffect(() => {
+        document.body.style.overflow = repoModalOpen ? "hidden" : "";
+        return () => { document.body.style.overflow = ""; };
+    }, [repoModalOpen]);
+
     // Fetch user's GitHub repositories
     const { data: repos, isLoading: isLoadingRepos } = useQuery(
         trpc.github.getRepositories.queryOptions(undefined, {
             enabled: isSignedIn,
         })
+    );
+
+    const filteredRepos = repos?.filter((r) =>
+        r.fullName.toLowerCase().includes(repoSearch.toLowerCase())
     );
 
     const invokeTestAgent = useMutation(
@@ -71,186 +89,385 @@ const Page = () => {
         });
     };
 
+    const scopeLabels: Record<string, string> = {
+        "auto": "Auto",
+        "backend-only": "API",
+        "full-stack": "Full-stack",
+    };
+
     return (
-        <div>
-            {/* Hero Content */}
-            <div className="max-w-4xl mx-auto px-6 py-8">
-                <div className="text-center space-y-8 mb-4">
-                    {/* Logo */}
-                    <div className="flex justify-center">
-                        <Image
-                            src="/logo.svg"
-                            alt="CodeSentinel Logo"
-                            width={96}
-                            height={96}
-                            className="w-24 h-24"
-                        />
-                    </div>
+        <div className="bg-[#0a0e1a] text-[#e2e4f6] font-body selection:bg-[#cafd00] selection:text-[#4a5e00] min-h-screen">
 
-                    {/* Heading */}
-                    <h1 className="text-3xl md:text-4xl font-bold text-foreground leading-tight">
-                        Autonomous bug testing with CodeSentinel
-                    </h1>
+            {/* ── Repo Picker Modal ─────────────────────────────────────────── */}
+            {repoModalOpen && (
+                <div
+                    className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+                    onClick={() => setRepoModalOpen(false)}
+                >
+                    {/* Backdrop */}
+                    <div className="absolute inset-0 bg-[#000000]/80 backdrop-blur-sm" />
 
-                    {/* Description */}
-                    <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-                        Describe a bug, and CodeSentinel autonomously analyzes your codebase,
-                        sets up the environment, writes tests, and confirms if the bug exists.
-                    </p>
-                </div>
+                    {/* Panel */}
+                    <div
+                        className="relative z-10 w-full max-w-xl bg-[#0e1320] border-4 border-[#f3ffca] shadow-[8px_8px_0px_0px_rgba(202,253,0,0.3)]"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Header */}
+                        <div className="flex items-center justify-between px-6 py-4 border-b-4 border-[#1a1f2f]">
+                            <div className="flex items-center gap-3">
+                                <span className="material-symbols-outlined text-[#f3ffca]">terminal</span>
+                                <span className="font-headline font-black text-sm uppercase tracking-widest text-[#f3ffca]">
+                                    Select Target Repository
+                                </span>
+                            </div>
+                            <button
+                                onClick={() => setRepoModalOpen(false)}
+                                className="text-[#717584] hover:text-white transition-colors"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
 
-                {/* Main Input Card */}
-                <div className="max-w-3xl mx-auto">
-                    <Card className="p-8 bg-transparent border-0 shadow-none rounded-2xl">
-                        <div className="space-y-4">
-                            {/* Repository Selector (small pill) */}
-                            <div>
-                                <div className="flex justify-center">
-                                    <Select
-                                        value={selectedRepo}
-                                        onValueChange={setSelectedRepo}
-                                        disabled={isLoadingRepos || !isSignedIn}
-                                    >
-                                        <SelectTrigger className="inline-flex items-center gap-2 h-8 rounded-full px-3 text-[11px] font-medium border border-border/80 bg-background/60 shadow-sm w-auto max-w-full">
-                                            <SelectValue
-                                                placeholder={
-                                                    !isSignedIn
-                                                        ? "Sign in with GitHub"
-                                                        : isLoadingRepos
-                                                        ? "Loading..."
-                                                        : "Choose a repository"
-                                                }
-                                            />
-                                        </SelectTrigger>
-                                        <SelectContent
-                                            position="popper"
-                                            align="center"
-                                            sideOffset={10}
-                                            className="data-[state=open]:duration-300 data-[state=closed]:duration-200 data-[state=open]:ease-[cubic-bezier(0.22,1,0.36,1)] data-[state=closed]:ease-in-out"
-                                        >
-                                            {repos?.map((repo) => (
-                                                <SelectItem key={repo.id} value={repo.fullName}>
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="font-medium">{repo.fullName}</span>
-                                                        {repo.private && (
-                                                            <span className="text-xs bg-muted px-2 py-0.5 rounded">
-                                                                Private
-                                                            </span>
-                                                        )}
-                                                        {repo.language && (
-                                                            <span className="text-xs text-muted-foreground">
-                                                                {repo.language}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                        {/* Search */}
+                        <div className="px-6 py-4 border-b-4 border-[#1a1f2f]">
+                            <div className="flex items-center gap-3 bg-[#000000] border-2 border-[#444756] focus-within:border-[#f3ffca] px-3 py-2 transition-all">
+                                <Search className="w-4 h-4 text-[#717584] shrink-0" />
+                                <input
+                                    type="text"
+                                    placeholder="Search repositories..."
+                                    value={repoSearch}
+                                    onChange={(e) => setRepoSearch(e.target.value)}
+                                    autoFocus
+                                    className="bg-transparent outline-none text-sm text-[#e2e4f6] placeholder:text-[#444756] w-full font-mono"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Repo list */}
+                        <div className="max-h-72 overflow-y-auto">
+                            {!isSignedIn ? (
+                                <div className="px-6 py-8 text-center text-[#717584] text-sm font-mono">
+                                    Sign in to access your repositories
                                 </div>
+                            ) : isLoadingRepos ? (
+                                <div className="px-6 py-8 flex items-center justify-center gap-3 text-[#717584] text-sm">
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    <span className="font-mono">Fetching repositories...</span>
+                                </div>
+                            ) : !filteredRepos?.length ? (
+                                <div className="px-6 py-8 text-center text-[#717584] text-sm font-mono">
+                                    No repositories found
+                                </div>
+                            ) : (
+                                filteredRepos.map((repo) => (
+                                    <button
+                                        key={repo.id}
+                                        onClick={() => { setSelectedRepo(repo.fullName); setRepoModalOpen(false); setRepoSearch(""); }}
+                                        className={`w-full flex items-center gap-4 px-6 py-4 text-left border-b border-[#1a1f2f] last:border-0 transition-colors ${
+                                            selectedRepo === repo.fullName
+                                                ? "bg-[#f3ffca]/10 text-[#f3ffca]"
+                                                : "hover:bg-[#1a1f2f] text-[#e2e4f6]"
+                                        }`}
+                                    >
+                                        <GitBranch className="w-4 h-4 text-[#717584] shrink-0" />
+                                        <div className="min-w-0">
+                                            <div className="font-mono text-sm truncate">{repo.fullName}</div>
+                                        </div>
+                                        {selectedRepo === repo.fullName && (
+                                            <span className="material-symbols-outlined text-sm text-[#f3ffca] ml-auto">check</span>
+                                        )}
+                                    </button>
+                                ))
+                            )}
+                        </div>
+
+                        {/* Footer hint */}
+                        <div className="px-6 py-3 border-t-4 border-[#1a1f2f] bg-[#141928] flex items-center justify-between">
+                            <span className="text-[10px] text-[#444756] font-mono uppercase tracking-widest">
+                                {repos?.length ?? 0} repositories
+                            </span>
+                            <span className="text-[10px] text-[#444756] font-mono uppercase tracking-widest">
+                                ESC to close
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* TopNavBar */}
+            <nav className="fixed top-0 w-full z-50 flex justify-between items-center px-6 py-2 bg-[#0a0e1a] shadow-[4px_4px_0px_0px_rgba(202,253,0,1)]">
+                {/* Left — logo only */}
+                <span className="text-lg font-black italic text-[#ccff00] uppercase font-['Space_Grotesk'] tracking-tight">CodeSentinel</span>
+
+                {/* Right — actions */}
+                <div className="flex items-center gap-3">
+                    {!isSignedIn ? (
+                        <SignInButton mode="modal">
+                            <button className="bg-[#cafd00] text-[#4a5e00] font-black text-xs px-4 py-1.5 shadow-[3px_3px_0px_0px_rgba(146,76,0,1)] active:translate-y-1 active:shadow-none transition-all duration-0 uppercase">
+                                Sign In
+                            </button>
+                        </SignInButton>
+                    ) : (
+                        <>
+                            <Link
+                                href="/dashboard"
+                                className="bg-[#1a1f2f] text-[#ccff00] border-2 border-[#ccff00] font-black text-xs px-4 py-1.5 shadow-[3px_3px_0px_0px_rgba(202,253,0,0.5)] hover:bg-[#ccff00] hover:text-black active:translate-y-1 active:shadow-none transition-all duration-0 uppercase tracking-widest"
+                            >
+                                Dashboard
+                            </Link>
+                            <UserButton
+                                appearance={{
+                                    variables: {
+                                        colorBackground: "#0e1320",
+                                        colorInputBackground: "#0a0e1a",
+                                        colorInputText: "#e2e4f6",
+                                        colorText: "#e2e4f6",
+                                        colorTextSecondary: "#a7aabb",
+                                        colorNeutral: "#e2e4f6",
+                                        colorPrimary: "#cafd00",
+                                        colorShimmer: "#1a1f2f",
+                                        colorDanger: "#ff7351",
+                                        fontFamily: "'Space Grotesk', sans-serif",
+                                        fontSize: "13px",
+                                        borderRadius: "0px",
+                                    },
+                                    elements: {
+                                        avatarBox: "w-8 h-8 border-2 border-[#ccff00]",
+                                        // Popover shell
+                                        userButtonPopoverRootBox: "z-[200]",
+                                        userButtonPopoverCard: "!bg-[#0e1320] border-4 border-[#cafd00] shadow-[6px_6px_0px_0px_rgba(202,253,0,0.3)] rounded-none",
+                                        userButtonPopoverMain: "!bg-[#0e1320]",
+                                        // User info row
+                                        userPreview: "!bg-[#0e1320]",
+                                        userPreviewMainIdentifier: "!text-[#cafd00] font-black uppercase tracking-widest",
+                                        userPreviewSecondaryIdentifier: "!text-[#a7aabb] font-mono text-xs",
+                                        userPreviewTextContainer: "!bg-[#0e1320]",
+                                        // Action buttons
+                                        userButtonPopoverActions: "!bg-[#0a0e1a] border-t-2 border-[#1a1f2f]",
+                                        userButtonPopoverActionButton: "!text-[#e2e4f6] hover:!bg-[#1a1f2f] hover:!text-[#cafd00] rounded-none uppercase tracking-wider text-xs font-bold",
+                                        userButtonPopoverActionButtonText: "!text-[#e2e4f6] uppercase tracking-wider text-xs font-bold",
+                                        userButtonPopoverActionButtonIcon: "!text-[#a7aabb]",
+                                        // Footer
+                                        userButtonPopoverFooter: "hidden",
+                                        // Dropdown separator
+                                        userButtonPopoverCustomItemButton: "!text-[#e2e4f6] hover:!bg-[#1a1f2f]",
+                                    },
+                                }}
+                            />
+                        </>
+                    )}
+                </div>
+            </nav>
+
+            <main>
+                {/* Hero Section — fills exactly one viewport frame below the navbar */}
+                <section className="relative h-[100dvh] flex flex-col justify-center px-6 arcade-grid overflow-hidden" style={{paddingTop: '48px'}}>
+                    <div className="absolute inset-0 bg-gradient-to-b from-transparent to-[#0a0e1a] pointer-events-none"></div>
+                    <div className="relative z-10 w-full max-w-5xl mx-auto text-center space-y-6">
+                        <h1 className="font-arcade text-5xl md:text-8xl text-[#f3ffca] leading-none tracking-tighter drop-shadow-[0_0_15px_rgba(202,253,0,0.4)]">
+                            HUNT BUGS BEFORE<br/>THEY HUNT YOU
+                        </h1>
+                        <div className="relative max-w-3xl mx-auto space-y-3 pb-10 pr-10">
+                            {/* Repo Picker Trigger */}
+                            <div className="flex justify-start">
+                                <button
+                                    onClick={() => isSignedIn && setRepoModalOpen(true)}
+                                    disabled={!isSignedIn || isLoadingRepos}
+                                    className="bg-[#1a1f2f] flex items-center gap-3 border-l-4 border-[#f3ffca] px-4 py-2 hover:bg-[#252c42] transition-colors disabled:cursor-not-allowed group"
+                                >
+                                    <span className="material-symbols-outlined text-[#f3ffca]">terminal</span>
+                                    <span className="font-headline font-bold text-sm tracking-widest text-[#f3ffca] uppercase">
+                                        {selectedRepo ? selectedRepo : (!isSignedIn ? "Sign in via GitHub" : isLoadingRepos ? "Loading..." : "Select Target Repository")}
+                                    </span>
+                                    {isLoadingRepos ? (
+                                        <Loader2 className="w-4 h-4 text-[#717584] animate-spin" />
+                                    ) : (
+                                        <span className="material-symbols-outlined text-[#717584]">expand_more</span>
+                                    )}
+                                </button>
                             </div>
 
-                            {/* Bug Description + Submit */}
-                            <div>
-                                <div className="rounded-4xl bg-card border-2 border-border/80 px-5 pt-4 pb-3 flex flex-col gap-2">
-                                    {/* Top: Textarea */}
-                                    <Textarea
-                                        placeholder="Example: Signup accepts weak passwords like '123' without validation. Expected: Should reject passwords shorter than 8 characters with 400 status."
-                                        value={bugDescription}
-                                        onChange={(e) => setBugDescription(e.target.value)}
-                                        rows={2}
-                                        className="min-h-16 max-h-24 overflow-y-auto resize-none text-sm border-0 bg-transparent dark:bg-transparent shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-0 py-1"
-                                        onKeyDown={(e) => {
-                                            if (
-                                                e.key === "Enter" &&
-                                                (e.metaKey || e.ctrlKey)
-                                            ) {
-                                                e.preventDefault();
-                                                if (
-                                                    !invokeTestAgent.isPending &&
-                                                    selectedRepo &&
-                                                    bugDescription &&
-                                                    isSignedIn
-                                                ) {
-                                                    handleRun();
-                                                }
+                            {/* Textarea */}
+                            <div className="relative group">
+                                <textarea 
+                                    className="w-full h-40 bg-[#000000] border-4 border-[#444756] focus:border-[#f3ffca] p-4 text-base font-mono text-[#a7aabb] focus:text-[#f3ffca] transition-all duration-0 outline-none shadow-[8px_8px_0px_0px_rgba(26,31,47,1)] focus:shadow-[8px_8px_0px_0px_rgba(202,253,0,0.3)] resize-none pb-16" 
+                                    placeholder="Example: Our login button decided to take a vacation. It clicks, but nothing happens. Find it and bring it back?"
+                                    value={bugDescription}
+                                    onChange={(e) => setBugDescription(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                                            e.preventDefault();
+                                            if (!invokeTestAgent.isPending && selectedRepo && bugDescription && isSignedIn) {
+                                                handleRun();
                                             }
-                                        }}
-                                    />
-                                    {/* Bottom: Mode select + Submit button */}
-                                    <div className="flex items-center justify-between mt-0.5 gap-2">
-                                        <div className="flex items-center gap-2">
-                                            <Select
-                                                value={testingMode}
-                                                onValueChange={(v) => setTestingMode(v as "fast" | "deep")}
-                                            >
-                                                <SelectTrigger className="h-7 rounded-full px-3 text-[11px] font-medium border border-border/60 bg-background/60 shadow-sm w-auto gap-1.5">
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent
-                                                    position="popper"
-                                                    align="start"
-                                                    sideOffset={8}
-                                                >
-                                                    <SelectItem value="fast">
-                                                        <span className="font-medium">Fast <span className="font-normal text-muted-foreground">— quick check</span></span>
-                                                    </SelectItem>
-                                                    <SelectItem value="deep">
-                                                        <span className="font-medium">Deep <span className="font-normal text-muted-foreground">— edge cases</span></span>
-                                                    </SelectItem>
-                                                </SelectContent>
-                                            </Select>
-
-                                            <Select
-                                                value={testingScope}
-                                                onValueChange={(v) => setTestingScope(v as "auto" | "backend-only" | "full-stack")}
-                                            >
-                                                <SelectTrigger className="h-7 rounded-full px-3 text-[11px] font-medium border border-border/60 bg-background/60 shadow-sm w-auto gap-1.5">
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent
-                                                    position="popper"
-                                                    align="start"
-                                                    sideOffset={8}
-                                                >
-                                                    <SelectItem value="auto">
-                                                        <span className="font-medium">Auto <span className="font-normal text-muted-foreground">— infer</span></span>
-                                                    </SelectItem>
-                                                    <SelectItem value="backend-only">
-                                                        <span className="font-medium">API <span className="font-normal text-muted-foreground">— backend only</span></span>
-                                                    </SelectItem>
-                                                    <SelectItem value="full-stack">
-                                                        <span className="font-medium">Full-stack <span className="font-normal text-muted-foreground">— UI + API</span></span>
-                                                    </SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                        <Button
-                                            type="button"
-                                            onClick={handleRun}
-                                            disabled={
-                                                invokeTestAgent.isPending ||
-                                                !selectedRepo ||
-                                                !bugDescription ||
-                                                !isSignedIn
-                                            }
-                                            className="w-8 h-8 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground p-0 flex items-center justify-center transition-all disabled:opacity-60"
+                                        }
+                                    }}
+                                ></textarea>
+                                
+                                <div className="absolute bottom-6 left-6 flex flex-wrap gap-3">
+                                    {/* Mode Dropdown — click based */}
+                                    <div className="relative" ref={modeRef}>
+                                        <button
+                                            onClick={() => { setModeOpen(o => !o); setScopeOpen(false); }}
+                                            className={`flex items-center gap-2 bg-[#1a1f2f] border-2 px-3 py-1 text-xs font-headline font-bold transition-all ${modeOpen ? "border-[#f3ffca] text-[#f3ffca]" : "border-[#444756] text-[#a7aabb] hover:border-[#f3ffca] hover:text-[#f3ffca]"}`}
                                         >
-                                            {invokeTestAgent.isPending ? (
-                                                <Loader2 className="w-4 h-4 animate-spin" />
-                                            ) : (
-                                                <ArrowUp className="w-4 h-4" />
-                                            )}
-                                        </Button>
+                                            <span className="uppercase tracking-widest">{testingMode}</span>
+                                            <span className="text-[10px] text-[#717584]">— speed</span>
+                                            <span className="material-symbols-outlined text-sm">{modeOpen ? "expand_less" : "expand_more"}</span>
+                                        </button>
+                                        {modeOpen && (
+                                            <div className="absolute bottom-full left-0 w-44 bg-[#202537] border-4 border-[#f3ffca] z-50">
+                                                {(["fast", "deep"] as const).map((m) => (
+                                                    <div
+                                                        key={m}
+                                                        onClick={() => { setTestingMode(m); setModeOpen(false); }}
+                                                        className={`px-3 py-2 cursor-pointer text-xs font-headline font-black uppercase tracking-widest transition-colors ${testingMode === m ? "bg-[#f3ffca] text-black" : "text-white hover:bg-[#f3ffca] hover:text-black"}`}
+                                                    >
+                                                        {m}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
+
+                                    {/* Scope Dropdown — click based */}
+                                    <div className="relative" ref={scopeRef}>
+                                        <button
+                                            onClick={() => { setScopeOpen(o => !o); setModeOpen(false); }}
+                                            className={`flex items-center gap-2 bg-[#1a1f2f] border-2 px-3 py-1 text-xs font-headline font-bold transition-all ${scopeOpen ? "border-[#f3ffca] text-[#f3ffca]" : "border-[#444756] text-[#a7aabb] hover:border-[#f3ffca] hover:text-[#f3ffca]"}`}
+                                        >
+                                            <span className="uppercase tracking-widest">{scopeLabels[testingScope]}</span>
+                                            <span className="text-[10px] text-[#717584]">— scope</span>
+                                            <span className="material-symbols-outlined text-sm">{scopeOpen ? "expand_less" : "expand_more"}</span>
+                                        </button>
+                                        {scopeOpen && (
+                                            <div className="absolute bottom-full left-0 w-44 bg-[#202537] border-4 border-[#f3ffca] z-50">
+                                                {([
+                                                    { value: "auto", label: "Auto" },
+                                                    { value: "backend-only", label: "API" },
+                                                    { value: "full-stack", label: "Full-stack" },
+                                                ] as const).map(({ value, label }) => (
+                                                    <div
+                                                        key={value}
+                                                        onClick={() => { setTestingScope(value); setScopeOpen(false); }}
+                                                        className={`px-3 py-2 cursor-pointer text-xs font-headline font-black uppercase tracking-widest transition-colors ${testingScope === value ? "bg-[#f3ffca] text-black" : "text-white hover:bg-[#f3ffca] hover:text-black"}`}
+                                                    >
+                                                        {label}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Circular START TEST button — overhangs outside textarea corner */}
+                                <button 
+                                    onClick={handleRun}
+                                    disabled={invokeTestAgent.isPending || !selectedRepo || !bugDescription || !isSignedIn}
+                                    className="absolute -bottom-6 -right-6 w-20 h-20 rounded-full bg-[#cafd00] text-[#4a5e00] shadow-[5px_5px_0px_0px_rgba(146,76,0,1)] active:translate-x-1 active:translate-y-1 active:shadow-none transition-all duration-0 flex items-center justify-center hover:scale-110 disabled:opacity-50 disabled:grayscale disabled:cursor-not-allowed"
+                                >
+                                    {invokeTestAgent.isPending ? (
+                                        <Loader2 className="w-6 h-6 animate-spin" />
+                                    ) : (
+                                        <span className="material-symbols-outlined text-3xl font-black">arrow_forward</span>
+                                    )}
+                                    <span className="absolute -top-3 -left-3 bg-[#fc8700] text-white text-[8px] font-black px-1.5 py-0.5 rotate-[-12deg] tracking-tighter pointer-events-none">
+                                        START TEST
+                                    </span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {/* Decorative Bits */}
+                    <div className="absolute bottom-20 left-10 hidden lg:block opacity-20">
+                        <pre className="font-arcade text-[#f3ffca] text-xs leading-none">
+01010111 01000001 01010100 01000011 01001000 
+01000100 01001111 01000111 00100000 01000001 
+01000011 01010100 01001001 01010110 01000101
+                        </pre>
+                    </div>
+                </section>
+
+
+                {/* How the Magic Happens Section */}
+                <section className="py-32 px-6 bg-[#0e1320] border-y-4 border-[#1a1f2f]">
+                    <div className="max-w-7xl mx-auto">
+                        <div className="mb-24 text-center md:text-left">
+                            <h2 className="font-arcade text-6xl text-white uppercase mb-4 tracking-tighter">How the Magic Happens</h2>
+                            <div className="w-32 h-4 bg-[#fc8700]"></div>
+                        </div>
+                        <div className="relative">
+                            <div className="absolute inset-0 z-0 pointer-events-none hidden lg:block">
+                                <svg className="w-full h-full" fill="none" viewBox="0 0 1200 400">
+                                    <path d="M50 50 L350 150 L650 50 L950 150" opacity="0.4" stroke="#ccff00" strokeDasharray="24 24" strokeWidth="8"></path>
+                                </svg>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 relative z-10">
+                                {/* Step 1 */}
+                                <div className="group">
+                                    <div className="relative mb-8">
+                                        <div className="w-24 h-24 bg-[#1a1f2f] border-4 border-[#444756] flex items-center justify-center group-hover:border-[#ccff00] transition-all steps-4">
+                                            <span className="material-symbols-outlined text-5xl text-[#ccff00] group-hover:scale-110 transition-transform">rocket_launch</span>
+                                        </div>
+                                        <div className="absolute -top-4 -right-4 bg-[#ccff00] text-black px-3 py-1 font-arcade text-2xl chunky-shadow-primary">01</div>
+                                    </div>
+                                    <h3 className="font-arcade text-2xl text-white mb-4 uppercase">Insert Coin</h3>
+                                    <p className="text-[#a7aabb] leading-relaxed text-sm">Drop your GitHub link and vent about the bug. We immediately spawn a hardcore, isolated E2B sandbox—like a secure boss arena for your code.</p>
+                                </div>
+                                {/* Step 2 */}
+                                <div className="group mt-0 lg:mt-24">
+                                    <div className="relative mb-8">
+                                        <div className="w-24 h-24 bg-[#1a1f2f] border-4 border-[#444756] flex items-center justify-center group-hover:border-[#ccff00] transition-all steps-4">
+                                            <span className="material-symbols-outlined text-5xl text-[#ccff00] group-hover:scale-110 transition-transform">dns</span>
+                                        </div>
+                                        <div className="absolute -top-4 -right-4 bg-[#ccff00] text-black px-3 py-1 font-arcade text-2xl chunky-shadow-primary">02</div>
+                                    </div>
+                                    <h3 className="font-arcade text-2xl text-white mb-4 uppercase">Spawn Area</h3>
+                                    <p className="text-[#a7aabb] leading-relaxed text-sm">Your repo teleports in. We quietly boot up local servers, juggle your env vars, and unleash headless browsers roaming in the background.</p>
+                                </div>
+                                {/* Step 3 */}
+                                <div className="group">
+                                    <div className="relative mb-8">
+                                        <div className="w-24 h-24 bg-[#1a1f2f] border-4 border-[#444756] flex items-center justify-center group-hover:border-[#ccff00] transition-all steps-4">
+                                            <span className="material-symbols-outlined text-5xl text-[#ccff00] group-hover:scale-110 transition-transform">smart_toy</span>
+                                        </div>
+                                        <div className="absolute -top-4 -right-4 bg-[#ccff00] text-black px-3 py-1 font-arcade text-2xl chunky-shadow-primary">03</div>
+                                    </div>
+                                    <h3 className="font-arcade text-2xl text-white mb-4 uppercase">Boss Fight</h3>
+                                    <p className="text-[#a7aabb] leading-relaxed text-sm">Our hyper-caffeinated AI agent equips its weapons. It starts executing bash commands, ripping through Playwright tests, and taking literal screenshots of UI fails.</p>
+                                </div>
+                                {/* Step 4 */}
+                                <div className="group mt-0 lg:mt-24">
+                                    <div className="relative mb-8">
+                                        <div className="w-24 h-24 bg-[#1a1f2f] border-4 border-[#444756] flex items-center justify-center group-hover:border-[#ccff00] transition-all steps-4">
+                                            <span className="material-symbols-outlined text-5xl text-[#ccff00] group-hover:scale-110 transition-transform">dashboard</span>
+                                        </div>
+                                        <div className="absolute -top-4 -right-4 bg-[#ccff00] text-black px-3 py-1 font-arcade text-2xl chunky-shadow-primary">04</div>
+                                    </div>
+                                    <h3 className="font-arcade text-2xl text-white mb-4 uppercase">High Score</h3>
+                                    <p className="text-[#a7aabb] leading-relaxed text-sm">Smoke clears. You get a glorious dashboard report pointing out exactly which line of code sold your game—plus the cheat codes (patches) to fix it.</p>
                                 </div>
                             </div>
                         </div>
-                    </Card>
+                    </div>
+                </section>
+
+            </main>
+
+            {/* Footer */}
+            <footer className="w-full border-t-4 border-[#1a1f2f] bg-[#000000] flex flex-col md:flex-row justify-between items-center px-8 py-12 gap-6">
+                <div className="flex items-center gap-4">
+                    <span className="text-[#ccff00] font-black text-xl font-['Space_Grotesk'] uppercase tracking-tight">CodeSentinel</span>
+                    <span className="text-gray-500 font-['Space_Grotesk'] uppercase text-xs tracking-widest justify-center sm:justify-start">© 2026 CODESENTINEL. INSERT COIN TO CONTINUE.</span>
                 </div>
-            </div>
+                <div className="flex gap-8">
+                    <Link className="text-gray-500 font-['Space_Grotesk'] uppercase text-xs tracking-widest hover:text-white transition-colors duration-75" href="#">Privacy</Link>
+                    <Link className="text-gray-500 font-['Space_Grotesk'] uppercase text-xs tracking-widest hover:text-white transition-colors duration-75" href="#">Terms</Link>
+                    <Link className="text-gray-500 font-['Space_Grotesk'] uppercase text-xs tracking-widest hover:text-white transition-colors duration-75" href="#">Security</Link>
+                    <Link className="text-[#ccff00] font-['Space_Grotesk'] uppercase text-xs tracking-widest hover:text-white transition-colors duration-75" href="#">Status</Link>
+                </div>
+            </footer>
         </div>
     );
-};
+}
 
-export default Page;
