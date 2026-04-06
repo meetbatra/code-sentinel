@@ -394,92 +394,147 @@ export default function TestResultsPage() {
                         (job.serverInfo && Object.keys(job.serverInfo).length > 0)) && (() => {
                         const discoveryInfo = (job.discoveryInfo || {}) as DiscoveryInfo;
                         const serverInfo = (job.serverInfo || {}) as ServerInfo;
+                        const isFullStack = !!(discoveryInfo.frontendFramework || discoveryInfo.frontendEntryPoint || serverInfo.frontendPort);
+
+                        if (!isFullStack) {
+                            const details = [];
+                            if (discoveryInfo.framework) {
+                                details.push(
+                                    <div key="fw">
+                                        <span className="text-muted-foreground">Framework:</span>{' '}
+                                        <span className="font-medium">{discoveryInfo.framework}</span>
+                                    </div>
+                                );
+                            }
+                            if (discoveryInfo.databaseUsed !== undefined) {
+                                details.push(
+                                    <div key="db">
+                                        <span className="text-muted-foreground">Database:</span>{' '}
+                                        <span className="font-medium">{discoveryInfo.databaseUsed ? 'Yes' : 'No'}</span>
+                                    </div>
+                                );
+                            }
+                            if (discoveryInfo.backendFramework) {
+                                details.push(
+                                    <div key="bfw">
+                                        <span className="text-muted-foreground">Backend Framework:</span>{' '}
+                                        <span className="font-medium">{discoveryInfo.backendFramework}</span>
+                                    </div>
+                                );
+                            }
+                            const entry = discoveryInfo.backendEntryPoint || discoveryInfo.entryPoint;
+                            if (entry) {
+                                details.push(
+                                    <div key="entry">
+                                        <span className="text-muted-foreground">Entry Point:</span>{' '}
+                                        <code className="text-xs bg-muted px-1.5 py-0.5 rounded">{entry}</code>
+                                    </div>
+                                );
+                            }
+                            const port = serverInfo.backendPort || serverInfo.port;
+                            if (port) {
+                                details.push(
+                                    <div key="port">
+                                        <span className="text-muted-foreground">Port:</span>{' '}
+                                        <span className="font-medium">{port}</span>
+                                    </div>
+                                );
+                            }
+                            if (discoveryInfo.moduleType) {
+                                details.push(
+                                    <div key="mod">
+                                        <span className="text-muted-foreground">Module Type:</span>{' '}
+                                        <span className="font-medium">{discoveryInfo.moduleType}</span>
+                                    </div>
+                                );
+                            }
+
+                            const half = Math.ceil(details.length / 2);
+                            const leftCol = details.slice(0, half);
+                            const rightCol = details.slice(half);
+
+                            return (
+                                <div className="border-t pt-4 mt-4">
+                                    <div className="text-sm font-semibold text-card-foreground mb-3">Technical Details</div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 text-sm">
+                                        <div className="space-y-3">{leftCol}</div>
+                                        <div className="space-y-3">{rightCol}</div>
+                                    </div>
+                                </div>
+                            );
+                        }
+
                         return (
                             <div className="border-t pt-4 mt-4">
                                 <div className="text-sm font-semibold text-card-foreground mb-3">Technical Details</div>
-                                <div className="grid grid-cols-2 gap-3 text-sm">
-                                    {discoveryInfo.framework && (
-                                        <div>
-                                            <span className="text-muted-foreground">Framework:</span>{' '}
-                                            <span className="font-medium">{discoveryInfo.framework}</span>
-                                        </div>
-                                    )}
-                                    {discoveryInfo.entryPoint && (
-                                        <div>
-                                            <span className="text-muted-foreground">Entry Point:</span>{' '}
-                                            <code className="text-xs bg-muted px-1.5 py-0.5 rounded">
-                                                {discoveryInfo.entryPoint}
-                                            </code>
-                                        </div>
-                                    )}
-                                    {discoveryInfo.moduleType && (
-                                        <div>
-                                            <span className="text-muted-foreground">Module Type:</span>{' '}
-                                            <span className="font-medium">{discoveryInfo.moduleType}</span>
-                                        </div>
-                                    )}
-                                    {discoveryInfo.backendFramework && (
-                                        <div>
-                                            <span className="text-muted-foreground">Backend Framework:</span>{' '}
-                                            <span className="font-medium">{discoveryInfo.backendFramework}</span>
-                                        </div>
-                                    )}
-                                    {discoveryInfo.frontendFramework && (
-                                        <div>
-                                            <span className="text-muted-foreground">Frontend Framework:</span>{' '}
-                                            <span className="font-medium">{discoveryInfo.frontendFramework}</span>
-                                        </div>
-                                    )}
-                                    {discoveryInfo.backendEntryPoint && (
-                                        <div>
-                                            <span className="text-muted-foreground">Backend Entry:</span>{' '}
-                                            <code className="text-xs bg-muted px-1.5 py-0.5 rounded">
-                                                {discoveryInfo.backendEntryPoint}
-                                            </code>
-                                        </div>
-                                    )}
-                                    {discoveryInfo.frontendEntryPoint && (
-                                        <div>
-                                            <span className="text-muted-foreground">Frontend Entry:</span>{' '}
-                                            <code className="text-xs bg-muted px-1.5 py-0.5 rounded">
-                                                {discoveryInfo.frontendEntryPoint}
-                                            </code>
-                                        </div>
-                                    )}
-                                    {discoveryInfo.databaseUsed !== undefined && (
-                                        <div>
-                                            <span className="text-muted-foreground">Database:</span>{' '}
-                                            <span className="font-medium">
-                                                {discoveryInfo.databaseUsed ? 'Yes' : 'No'}
-                                            </span>
-                                        </div>
-                                    )}
-                                    {serverInfo.port && (
-                                        <div>
-                                            <span className="text-muted-foreground">Server Port:</span>{' '}
-                                            <span className="font-medium">{serverInfo.port}</span>
-                                        </div>
-                                    )}
-                                    {serverInfo.backendPort && (
-                                        <div>
-                                            <span className="text-muted-foreground">Backend Port:</span>{' '}
-                                            <span className="font-medium">{serverInfo.backendPort}</span>
-                                        </div>
-                                    )}
-                                    {serverInfo.frontendPort && (
-                                        <div>
-                                            <span className="text-muted-foreground">Frontend Port:</span>{' '}
-                                            <span className="font-medium">{serverInfo.frontendPort}</span>
-                                        </div>
-                                    )}
-                                    {serverInfo.frontendUrl && (
-                                        <div>
-                                            <span className="text-muted-foreground">Frontend URL:</span>{' '}
-                                            <code className="text-xs bg-muted px-1.5 py-0.5 rounded">
-                                                {serverInfo.frontendUrl}
-                                            </code>
-                                        </div>
-                                    )}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 text-sm">
+                                    {/* Left Column: Framework & Backend */}
+                                    <div className="space-y-3">
+                                        {discoveryInfo.framework && (
+                                            <div>
+                                                <span className="text-muted-foreground">Framework:</span>{' '}
+                                                <span className="font-medium">{discoveryInfo.framework}</span>
+                                            </div>
+                                        )}
+                                        {discoveryInfo.backendFramework && (
+                                            <div>
+                                                <span className="text-muted-foreground">Backend Framework:</span>{' '}
+                                                <span className="font-medium">{discoveryInfo.backendFramework}</span>
+                                            </div>
+                                        )}
+                                        {(discoveryInfo.backendEntryPoint || discoveryInfo.entryPoint) && (
+                                            <div>
+                                                <span className="text-muted-foreground">Backend Entry:</span>{' '}
+                                                <code className="text-xs bg-muted px-1.5 py-0.5 rounded">
+                                                    {discoveryInfo.backendEntryPoint || discoveryInfo.entryPoint}
+                                                </code>
+                                            </div>
+                                        )}
+                                        {(serverInfo.backendPort || serverInfo.port) && (
+                                            <div>
+                                                <span className="text-muted-foreground">Backend Port:</span>{' '}
+                                                <span className="font-medium">{serverInfo.backendPort || serverInfo.port}</span>
+                                            </div>
+                                        )}
+                                        {discoveryInfo.moduleType && (
+                                            <div>
+                                                <span className="text-muted-foreground">Module Type:</span>{' '}
+                                                <span className="font-medium">{discoveryInfo.moduleType}</span>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Right Column: Database & Frontend */}
+                                    <div className="space-y-3">
+                                        {discoveryInfo.databaseUsed !== undefined && (
+                                            <div>
+                                                <span className="text-muted-foreground">Database:</span>{' '}
+                                                <span className="font-medium">
+                                                    {discoveryInfo.databaseUsed ? 'Yes' : 'No'}
+                                                </span>
+                                            </div>
+                                        )}
+                                        {discoveryInfo.frontendFramework && (
+                                            <div>
+                                                <span className="text-muted-foreground">Frontend Framework:</span>{' '}
+                                                <span className="font-medium">{discoveryInfo.frontendFramework}</span>
+                                            </div>
+                                        )}
+                                        {discoveryInfo.frontendEntryPoint && (
+                                            <div>
+                                                <span className="text-muted-foreground">Frontend Entry:</span>{' '}
+                                                <code className="text-xs bg-muted px-1.5 py-0.5 rounded">
+                                                    {discoveryInfo.frontendEntryPoint}
+                                                </code>
+                                            </div>
+                                        )}
+                                        {serverInfo.frontendPort && (
+                                            <div>
+                                                <span className="text-muted-foreground">Frontend Port:</span>{' '}
+                                                <span className="font-medium">{serverInfo.frontendPort}</span>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         );
@@ -560,7 +615,7 @@ function TestsPanel({ tests }: { tests: Test[] }) {
         if (pass + fail === 0) return "text-muted-foreground";
         if (fail === 0) return "text-chart-2";
         if (pass === 0) return "text-destructive";
-        return "text-chart-3";
+        return "text-amber-500";
     };
 
     const fullStackByFeature = fullStackTests.reduce((acc, test) => {
