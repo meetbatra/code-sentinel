@@ -4,13 +4,8 @@ import Link from "next/link";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Loader2, RotateCcw, Square } from "lucide-react";
-
 import { useTRPC } from "@/trpc/client";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Navbar } from "@/components/navbar";
 
 type JobCard = {
   id: string;
@@ -30,6 +25,7 @@ export default function AllJobsPage() {
   const [optimisticallyCancelledJobIds, setOptimisticallyCancelledJobIds] = useState<Set<string>>(new Set());
   const [optimisticallyRerunningJobIds, setOptimisticallyRerunningJobIds] = useState<Set<string>>(new Set());
   const [optimisticNewJobs, setOptimisticNewJobs] = useState<Array<JobCard>>([]);
+  const [activeTab, setActiveTab] = useState<"all" | "running" | "completed" | "cancelled">("all");
 
   const { data, isLoading } = useQuery(
     trpc.jobs.list.queryOptions(
@@ -56,18 +52,15 @@ export default function AllJobsPage() {
 
   const rerunJob = useMutation(trpc.jobs.rerun.mutationOptions());
 
-  if (isLoading) {
-    return <p className="text-sm text-muted-foreground">Loading jobs...</p>;
-  }
-
   const serverJobs = data?.jobs ?? [];
   const jobs = [...optimisticNewJobs, ...serverJobs];
+  
   const getCategory = (job: JobCard) => {
     const isRunning = ["PENDING", "ANALYZING", "SETTING_UP", "TESTING"].includes(job.status);
     const isOptimisticallyCancelled = optimisticallyCancelledJobIds.has(job.id);
     const isCancelled =
       isOptimisticallyCancelled ||
-      job.status === "FAILED" && (job.summary ?? "").toLowerCase().includes("canceled by user");
+      (job.status === "FAILED" && (job.summary ?? "").toLowerCase().includes("canceled by user"));
     if (isRunning) return "running" as const;
     if (isCancelled) return "cancelled" as const;
     return "completed" as const;
@@ -87,9 +80,14 @@ export default function AllJobsPage() {
     return sortByTimeDesc(a, b);
   });
 
-  const runningJobs = sortedAllJobs.filter((job) => getCategory(job) === "running");
-  const completedJobs = sortedAllJobs.filter((job) => getCategory(job) === "completed");
-  const cancelledJobs = sortedAllJobs.filter((job) => getCategory(job) === "cancelled");
+  const categories = {
+    all: sortedAllJobs,
+    running: sortedAllJobs.filter((job) => getCategory(job) === "running"),
+    completed: sortedAllJobs.filter((job) => getCategory(job) === "completed"),
+    cancelled: sortedAllJobs.filter((job) => getCategory(job) === "cancelled"),
+  };
+
+  const currentJobs = categories[activeTab];
 
   const handleRerun = (job: JobCard) => {
     if (optimisticallyRerunningJobIds.has(job.id)) return;
@@ -137,219 +135,179 @@ export default function AllJobsPage() {
   };
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">All Jobs</h1>
-        <Button asChild>
-          <Link href="/">Home</Link>
-        </Button>
-      </div>
+    <>
+      <Navbar />
 
-      <Tabs defaultValue="all" className="space-y-3">
-        <TabsList>
-          <TabsTrigger value="all">All ({sortedAllJobs.length})</TabsTrigger>
-          <TabsTrigger value="running">Running ({runningJobs.length})</TabsTrigger>
-          <TabsTrigger value="completed">Completed ({completedJobs.length})</TabsTrigger>
-          <TabsTrigger value="cancelled">Cancelled ({cancelledJobs.length})</TabsTrigger>
-        </TabsList>
+      <main className="pt-20 pb-12 px-6 max-w-7xl mx-auto min-h-screen">
+        {/* Dashboard Header */}
+        <div className="mb-12">
+          <h1 className="text-8xl md:text-[9rem] font-arcade text-primary tracking-tighter uppercase leading-none">
+            MISSION CONTROL
+          </h1>
+          <p className="text-secondary font-arcade text-4xl md:text-5xl tracking-[0.2em] opacity-80 uppercase">
+            All Test Jobs
+          </p>
+        </div>
 
-        <TabsContent value="all">
-          <JobsGrid
-            jobs={sortedAllJobs}
-            cancelRun={cancelRun}
-            onRerun={handleRerun}
-            optimisticallyCancelledJobIds={optimisticallyCancelledJobIds}
-            setOptimisticallyCancelledJobIds={setOptimisticallyCancelledJobIds}
-            optimisticallyRerunningJobIds={optimisticallyRerunningJobIds}
-            setOptimisticallyRerunningJobIds={setOptimisticallyRerunningJobIds}
-          />
-        </TabsContent>
+        {/* Filter Tabs */}
+        <div className="flex flex-wrap gap-0 mb-8 border-b-4 border-surface-container-highest">
+          {(["all", "running", "completed", "cancelled"] as const).map((tab) => {
+            const isActive = activeTab === tab;
+            return (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`px-8 py-3 font-bold border-t-4 border-l-4 border-r-4 tracking-tighter uppercase text-sm steps-4 transition-all ${
+                  isActive
+                    ? "bg-primary text-on-primary-container border-primary"
+                    : "text-on-surface-variant border-transparent hover:border-surface-container-high hover:text-on-surface"
+                }`}
+              >
+                {tab} ({categories[tab].length})
+              </button>
+            );
+          })}
+        </div>
 
-        <TabsContent value="running">
-          <JobsGrid
-            jobs={runningJobs}
-            cancelRun={cancelRun}
-            onRerun={handleRerun}
-            optimisticallyCancelledJobIds={optimisticallyCancelledJobIds}
-            setOptimisticallyCancelledJobIds={setOptimisticallyCancelledJobIds}
-            optimisticallyRerunningJobIds={optimisticallyRerunningJobIds}
-            setOptimisticallyRerunningJobIds={setOptimisticallyRerunningJobIds}
-          />
-        </TabsContent>
+        {/* Job Grid */}
+        {isLoading ? (
+          <div className="text-center py-24 text-on-surface-variant font-arcade animate-pulse text-2xl">
+            LOADING_DATA...
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {currentJobs.map((job) => {
+              const isOptimisticallyCancelled = optimisticallyCancelledJobIds.has(job.id);
+              const isOptimisticallyRerunning = optimisticallyRerunningJobIds.has(job.id);
+              const isRunning = ["PENDING", "ANALYZING", "SETTING_UP", "TESTING"].includes(job.status) && !isOptimisticallyCancelled;
+              const isCancelled =
+                isOptimisticallyCancelled ||
+                (job.status === "FAILED" && (job.summary ?? "").toLowerCase().includes("canceled by user"));
+              
+              const statusLabel = isRunning ? "⚡ ACTIVE" : isCancelled ? "✗ CANCELLED" : "✓ DONE";
+              const bgColorClass = isRunning ? "bg-secondary" : isCancelled ? "bg-error" : "bg-primary";
+              const colorClass = isRunning ? "text-secondary" : isCancelled ? "text-error" : "text-primary";
+              const onColorClass = isRunning ? "text-on-secondary" : isCancelled ? "text-on-error" : "text-on-primary-container";
+              
+              const passedCount = job.tests.filter((t) => t.status === "PASS").length;
+              const totalTests = job._count.tests;
+              const passRate = totalTests > 0 ? Math.round((passedCount / totalTests) * 100) : 0;
 
-        <TabsContent value="completed">
-          <JobsGrid
-            jobs={completedJobs}
-            cancelRun={cancelRun}
-            onRerun={handleRerun}
-            optimisticallyCancelledJobIds={optimisticallyCancelledJobIds}
-            setOptimisticallyCancelledJobIds={setOptimisticallyCancelledJobIds}
-            optimisticallyRerunningJobIds={optimisticallyRerunningJobIds}
-            setOptimisticallyRerunningJobIds={setOptimisticallyRerunningJobIds}
-          />
-        </TabsContent>
-
-        <TabsContent value="cancelled">
-          <JobsGrid
-            jobs={cancelledJobs}
-            cancelRun={cancelRun}
-            onRerun={handleRerun}
-            optimisticallyCancelledJobIds={optimisticallyCancelledJobIds}
-            setOptimisticallyCancelledJobIds={setOptimisticallyCancelledJobIds}
-            optimisticallyRerunningJobIds={optimisticallyRerunningJobIds}
-            setOptimisticallyRerunningJobIds={setOptimisticallyRerunningJobIds}
-          />
-        </TabsContent>
-      </Tabs>
-    </div>
-  );
-}
-
-function JobsGrid({
-  jobs,
-  cancelRun,
-  onRerun,
-  optimisticallyCancelledJobIds,
-  setOptimisticallyCancelledJobIds,
-  optimisticallyRerunningJobIds,
-  setOptimisticallyRerunningJobIds,
-}: {
-  jobs: Array<{
-    id: string;
-    status: string;
-    summary: string | null;
-    createdAt: Date;
-    repository: { repoOwner: string; repoName: string };
-    _count: { tests: number; bugs: number };
-    tests: Array<{ status: "PASS" | "FAIL" | "ERROR" }>;
-  }>;
-  cancelRun: {
-    mutate: (
-      input: { jobId: string },
-      options?: {
-        onSuccess?: (result: { success: boolean; message?: string }) => void;
-        onError?: () => void;
-      }
-    ) => void;
-  };
-  onRerun: (job: JobCard) => void;
-  optimisticallyCancelledJobIds: Set<string>;
-  setOptimisticallyCancelledJobIds: (updater: (prev: Set<string>) => Set<string>) => void;
-  optimisticallyRerunningJobIds: Set<string>;
-  setOptimisticallyRerunningJobIds: (updater: (prev: Set<string>) => Set<string>) => void;
-}) {
-  return (
-    <Card className="space-y-3 p-4">
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-        {jobs.map((job) => {
-          const isOptimisticallyCancelled = optimisticallyCancelledJobIds.has(job.id);
-          const isOptimisticallyRerunning = optimisticallyRerunningJobIds.has(job.id);
-          const isRunning = ["PENDING", "ANALYZING", "SETTING_UP", "TESTING"].includes(job.status) && !isOptimisticallyCancelled;
-          const isCancelled =
-            isOptimisticallyCancelled ||
-            job.status === "FAILED" &&
-            (job.summary ?? "").toLowerCase().includes("canceled by user");
-          const statusLabel = isRunning ? "Running" : isCancelled ? "Cancelled" : "Completed";
-          const statusClassName = isRunning
-            ? "border-yellow-200 bg-yellow-50 text-yellow-800"
-            : isCancelled
-              ? "border-red-200 bg-red-50 text-red-700"
-              : "border-emerald-200 bg-emerald-50 text-emerald-700";
-          const passedCount = job.tests.filter((test) => test.status === "PASS").length;
-          const totalTests = job._count.tests;
-
-          return (
-            <div
-              key={job.id}
-              className="relative flex min-h-36 items-center justify-between gap-4 rounded-xl border border-border/70 px-5 py-5"
-            >
-              <Badge variant="outline" className={`absolute top-3 right-3 ${statusClassName}`}>
-                {statusLabel}
-              </Badge>
-
-              <div className="space-y-2">
-                <p className="font-medium">
-                  {job.repository.repoOwner}/{job.repository.repoName}
-                </p>
-                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                  <span className="rounded-md bg-muted px-2 py-1">Tests: {totalTests}</span>
-                  <span className="rounded-md bg-muted px-2 py-1">Bugs: {job._count.bugs}</span>
-                  <span className="rounded-md bg-muted px-2 py-1">
-                    Passed: {passedCount}/{totalTests}
-                  </span>
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {new Date(job.createdAt).toLocaleString()}
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2 pt-6">
-                {isRunning ? (
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    aria-label="Cancel run"
-                    title="Cancel run"
-                    onClick={() => {
-                      if (optimisticallyCancelledJobIds.has(job.id)) return;
-                      setOptimisticallyCancelledJobIds((prev) => new Set(prev).add(job.id));
-                      cancelRun.mutate(
-                        { jobId: job.id },
-                        {
-                          onSuccess: (result: { success: boolean; message?: string }) => {
-                            if (!result.success) {
-                              setOptimisticallyCancelledJobIds((prev) => {
-                                const next = new Set(prev);
-                                next.delete(job.id);
-                                return next;
-                              });
-                            }
-                          },
-                          onError: () => {
-                            setOptimisticallyCancelledJobIds((prev) => {
-                              const next = new Set(prev);
-                              next.delete(job.id);
-                              return next;
-                            });
-                          },
-                        } as {
-                          onError?: () => void;
-                        }
-                      );
-                    }}
-                  >
-                    <Square className="h-3.5 w-3.5" />
-                  </Button>
-                ) : (
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    aria-label="Re-run"
-                    title="Re-run"
-                    disabled={isOptimisticallyRerunning}
-                    onClick={() => {
-                      if (optimisticallyRerunningJobIds.has(job.id)) return;
-                      setOptimisticallyRerunningJobIds((prev) => new Set(prev).add(job.id));
-                      onRerun(job);
-                    }}
-                  >
-                    {isOptimisticallyRerunning ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <RotateCcw className="h-3.5 w-3.5" />
+              return (
+                <div key={job.id} className="group bg-surface-container-high p-6 border-4 border-transparent hover:border-primary transition-all steps-4 flex flex-col sm:flex-row gap-6 relative shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+                  <div className={`absolute -top-4 -left-4 ${bgColorClass} ${onColorClass} px-2 py-1 text-[10px] font-black uppercase`}>
+                    ID: {job.id.substring(0, 8)}
+                  </div>
+                  <div className="flex-grow">
+                    <div className="flex flex-col sm:flex-row justify-between items-start mb-4 gap-2">
+                      <h3 className="text-xl font-bold text-primary font-headline tracking-tight truncate max-w-[280px]">
+                        {job.repository.repoOwner}/{job.repository.repoName}
+                      </h3>
+                      <span className={`${bgColorClass}/10 ${colorClass} border border-current px-3 py-1 text-xs font-black tracking-widest font-label whitespace-nowrap`}>
+                        {statusLabel}
+                      </span>
+                    </div>
+                    
+                    <div className="flex flex-wrap gap-3 mb-6">
+                      <div className={`bg-surface-container-lowest px-3 py-1 flex items-center gap-2 border border-outline-variant/30 ${isCancelled ? 'opacity-50' : ''}`}>
+                        <span className="text-[10px] text-on-surface-variant font-bold">TESTS</span>
+                        <span className="text-on-surface font-black">
+                          {isCancelled ? '--' : isRunning ? `${passedCount}/${totalTests}` : totalTests}
+                        </span>
+                      </div>
+                      <div className={`bg-surface-container-lowest px-3 py-1 flex items-center gap-2 border border-outline-variant/30 ${isCancelled ? 'opacity-50' : ''}`}>
+                        <span className="text-[10px] text-on-surface-variant font-bold">BUGS</span>
+                        <span className={`${isCancelled ? 'text-on-surface' : isRunning ? 'text-secondary' : 'text-error'} font-black`}>
+                          {isCancelled ? '--' : job._count.bugs}
+                        </span>
+                      </div>
+                      <div className={`bg-surface-container-lowest px-3 py-1 flex items-center gap-2 border border-outline-variant/30 ${isCancelled ? 'opacity-50' : ''}`}>
+                        <span className="text-[10px] text-on-surface-variant font-bold">{isRunning ? 'PROGRESS' : 'PASS'}</span>
+                        <span className={`${isCancelled ? 'text-on-surface' : 'text-primary'} font-black`}>
+                          {isCancelled ? '--' : `${passRate}%`}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    {isRunning && (
+                      <div className="h-2 w-full bg-surface-container-lowest border border-outline-variant/20 mb-4">
+                        <div className="h-full bg-secondary" style={{ width: `${passRate}%` }}></div>
+                      </div>
                     )}
-                  </Button>
-                )}
-                <Button asChild size="icon" variant="outline" aria-label="Open test page" title="Open test page">
-                  <Link href={`/test/${job.id}?from=dashboard`}>!</Link>
-                </Button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+                    
+                    <div className="flex items-center gap-2 text-on-surface-variant text-[10px] font-bold uppercase tracking-wider">
+                      <span className="material-symbols-outlined text-sm">schedule</span>
+                      {new Date(job.createdAt).toLocaleString()} · Branch: main
+                    </div>
+                  </div>
+                  
+                  <div className="flex flex-row sm:flex-col gap-2 sm:justify-center border-t sm:border-t-0 sm:border-l border-outline-variant/20 pt-4 sm:pt-0 sm:pl-6">
+                    {isRunning ? (
+                      <button
+                        onClick={() => {
+                          if (optimisticallyCancelledJobIds.has(job.id)) return;
+                          setOptimisticallyCancelledJobIds((prev) => new Set(prev).add(job.id));
+                          cancelRun.mutate({ jobId: job.id });
+                        }}
+                        className="w-12 h-12 flex items-center justify-center bg-surface-container-highest hover:bg-error hover:text-on-error transition-all steps-4"
+                      >
+                        <span className="material-symbols-outlined">stop</span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleRerun(job)}
+                        disabled={isOptimisticallyRerunning}
+                        className="w-12 h-12 flex items-center justify-center bg-surface-container-highest hover:bg-primary hover:text-on-primary-container transition-all steps-4 disabled:opacity-50"
+                      >
+                        {isOptimisticallyRerunning ? (
+                          <span className="material-symbols-outlined animate-spin">progress_activity</span>
+                        ) : (
+                          <span className="material-symbols-outlined">refresh</span>
+                        )}
+                      </button>
+                    )}
+                    <Link
+                      href={`/test/${job.id}?from=dashboard`}
+                      className="w-12 h-12 flex items-center justify-center bg-surface-container-highest hover:bg-secondary hover:text-on-secondary-container transition-all steps-4"
+                    >
+                      <span className="material-symbols-outlined">chevron_right</span>
+                    </Link>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        
+        {!isLoading && currentJobs.length === 0 && (
+          <div className="text-center py-24 text-on-surface-variant font-arcade text-2xl uppercase">
+            NO_MISSIONS_FOUND
+          </div>
+        )}
+      </main>
 
-      {jobs.length === 0 && <p className="text-sm text-muted-foreground">No jobs yet.</p>}
-    </Card>
+      {/* Footer Component */}
+      <footer className="w-full py-8 border-t-4 border-[#1a1f2f] bg-[#000000]">
+        <div className="flex flex-col md:flex-row justify-between items-center px-8 gap-4">
+          <div className="flex items-center gap-6">
+            <span className="text-lg font-bold text-[#f3ffca] font-headline uppercase tracking-tighter">CODESENTINEL</span>
+            <span className="font-body text-xs uppercase tracking-widest text-slate-500">© 2024 CODESENTINEL // MISSION CONTROL</span>
+          </div>
+          <div className="flex flex-wrap justify-center gap-6">
+            <Link className="font-body text-xs uppercase tracking-widest text-slate-500 hover:text-[#fc8700] transition-colors duration-150" href="#">Privacy</Link>
+            <Link className="font-body text-xs uppercase tracking-widest text-slate-500 hover:text-[#fc8700] transition-colors duration-150" href="#">Terms</Link>
+            <Link className="font-body text-xs uppercase tracking-widest text-slate-500 hover:text-[#fc8700] transition-colors duration-150" href="#">Support</Link>
+            <Link className="font-body text-xs uppercase tracking-widest text-[#f3ffca] hover:text-[#fc8700] transition-colors duration-150" href="#">Status</Link>
+          </div>
+        </div>
+      </footer>
+
+      {/* FAB for mobile focus */}
+      <div className="fixed bottom-8 right-8 md:hidden">
+        <Link href="/" className="w-16 h-16 bg-primary text-on-primary-container shadow-[6px_6px_0px_0px_rgba(146,76,0,1)] flex items-center justify-center active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all">
+          <span className="material-symbols-outlined scale-150 font-bold">add</span>
+        </Link>
+      </div>
+    </>
   );
 }

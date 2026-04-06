@@ -5,9 +5,10 @@ import { useTRPC } from "@/trpc/client";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { SignInButton, useUser, UserButton } from "@clerk/nextjs";
+import { useUser } from "@clerk/nextjs";
 import Link from "next/link";
 import { Loader2, Search, X, GitBranch } from "lucide-react";
+import { Navbar } from "@/components/navbar";
 
 export default function Page() {
     const trpc = useTRPC();
@@ -194,70 +195,8 @@ export default function Page() {
                 </div>
             )}
 
-            {/* TopNavBar */}
-            <nav className="fixed top-0 w-full z-50 flex justify-between items-center px-6 py-2 bg-[#0a0e1a] shadow-[4px_4px_0px_0px_rgba(202,253,0,1)]">
-                {/* Left — logo only */}
-                <span className="text-lg font-black italic text-[#ccff00] uppercase font-['Space_Grotesk'] tracking-tight">CodeSentinel</span>
-
-                {/* Right — actions */}
-                <div className="flex items-center gap-3">
-                    {!isSignedIn ? (
-                        <SignInButton mode="modal">
-                            <button className="bg-[#cafd00] text-[#4a5e00] font-black text-xs px-4 py-1.5 shadow-[3px_3px_0px_0px_rgba(146,76,0,1)] active:translate-y-1 active:shadow-none transition-all duration-0 uppercase">
-                                Sign In
-                            </button>
-                        </SignInButton>
-                    ) : (
-                        <>
-                            <Link
-                                href="/dashboard"
-                                className="bg-[#1a1f2f] text-[#ccff00] border-2 border-[#ccff00] font-black text-xs px-4 py-1.5 shadow-[3px_3px_0px_0px_rgba(202,253,0,0.5)] hover:bg-[#ccff00] hover:text-black active:translate-y-1 active:shadow-none transition-all duration-0 uppercase tracking-widest"
-                            >
-                                Dashboard
-                            </Link>
-                            <UserButton
-                                appearance={{
-                                    variables: {
-                                        colorBackground: "#0e1320",
-                                        colorInputBackground: "#0a0e1a",
-                                        colorInputText: "#e2e4f6",
-                                        colorText: "#e2e4f6",
-                                        colorTextSecondary: "#a7aabb",
-                                        colorNeutral: "#e2e4f6",
-                                        colorPrimary: "#cafd00",
-                                        colorShimmer: "#1a1f2f",
-                                        colorDanger: "#ff7351",
-                                        fontFamily: "'Space Grotesk', sans-serif",
-                                        fontSize: "13px",
-                                        borderRadius: "0px",
-                                    },
-                                    elements: {
-                                        avatarBox: "w-8 h-8 border-2 border-[#ccff00]",
-                                        // Popover shell
-                                        userButtonPopoverRootBox: "z-[200]",
-                                        userButtonPopoverCard: "!bg-[#0e1320] border-4 border-[#cafd00] shadow-[6px_6px_0px_0px_rgba(202,253,0,0.3)] rounded-none",
-                                        userButtonPopoverMain: "!bg-[#0e1320]",
-                                        // User info row
-                                        userPreview: "!bg-[#0e1320]",
-                                        userPreviewMainIdentifier: "!text-[#cafd00] font-black uppercase tracking-widest",
-                                        userPreviewSecondaryIdentifier: "!text-[#a7aabb] font-mono text-xs",
-                                        userPreviewTextContainer: "!bg-[#0e1320]",
-                                        // Action buttons
-                                        userButtonPopoverActions: "!bg-[#0a0e1a] border-t-2 border-[#1a1f2f]",
-                                        userButtonPopoverActionButton: "!text-[#e2e4f6] hover:!bg-[#1a1f2f] hover:!text-[#cafd00] rounded-none uppercase tracking-wider text-xs font-bold",
-                                        userButtonPopoverActionButtonText: "!text-[#e2e4f6] uppercase tracking-wider text-xs font-bold",
-                                        userButtonPopoverActionButtonIcon: "!text-[#a7aabb]",
-                                        // Footer
-                                        userButtonPopoverFooter: "hidden",
-                                        // Dropdown separator
-                                        userButtonPopoverCustomItemButton: "!text-[#e2e4f6] hover:!bg-[#1a1f2f]",
-                                    },
-                                }}
-                            />
-                        </>
-                    )}
-                </div>
-            </nav>
+            {/* Shared TopNavBar */}
+            <Navbar />
 
             <main>
                 {/* Hero Section — fills exactly one viewport frame below the navbar */}
