@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { CodeBlock } from "@/components/code-block";
-import { CheckCircle2, XCircle, AlertCircle, ChevronDown, FileEdit, Sparkles, ChevronRight } from "lucide-react";
+import { CheckCircle2, XCircle, AlertCircle, ChevronDown, FileEdit, Sparkles, ChevronRight, Server, TerminalSquare } from "lucide-react";
 import { Navbar } from "@/components/navbar";
 
 // ─── Type guards ────────────────────────────────────────────────────────────
@@ -105,7 +105,6 @@ export default function TestResultsPage() {
     const from = searchParams.get("from");
     const backHref = from === "dashboard" ? "/dashboard" : "/";
     const [isOptimisticallyCancelled, setIsOptimisticallyCancelled] = useState(false);
-    const [activeTab, setActiveTab] = useState<"bugs" | "tests">("bugs");
 
     const cancelRun = useMutation(
         trpc.jobs.cancel.mutationOptions({
@@ -155,211 +154,162 @@ export default function TestResultsPage() {
     const failedTests = (job.failedTests ?? job.tests.filter(t => t.status === "FAIL").length) + (job.errorTests ?? 0);
 
     return (
-        <div className="min-h-screen bg-[#0a0e1a]">
+        <div className="min-h-screen bg-[#000000] text-white selection:bg-[#cafd00] selection:text-black">
             <Navbar />
 
-            {/* Layout: sidebar + main */}
-            <div className="flex pt-12 min-h-screen">
+            {/* Main Content Area */}
+            <main className="pt-24 pb-32 px-4 md:px-12 lg:px-20 max-w-7xl mx-auto min-h-screen">
+                
+                {/* ── BENTO GRID TOP (Terminal Readout Header) ──────────────────── */}
+                <div className="mb-12">
+                    <button
+                        onClick={() => router.push(backHref)}
+                        className="flex items-center gap-2 mb-6 text-[#717584] hover:text-[#fc8700] text-xs uppercase tracking-widest font-label transition-colors group"
+                    >
+                        <span className="group-hover:-translate-x-1 transition-transform">←</span>
+                        Back
+                    </button>
 
-                {/* ── LEFT SIDEBAR ─────────────────────────────────────── */}
-                <aside className="w-80 shrink-0 bg-[#000000] sticky top-12 h-[calc(100vh-48px)] overflow-y-auto flex flex-col">
-                    <div className="p-5 flex flex-col gap-5 flex-1">
-
-                        {/* Back button */}
-                        <button
-                            onClick={() => router.push(backHref)}
-                            className="flex items-center gap-2 text-[#a7aabb] hover:text-[#f3ffca] text-xs uppercase tracking-widest font-label transition-colors group"
-                        >
-                            <span className="group-hover:-translate-x-1 transition-transform">←</span>
-                            Back
-                        </button>
-
-                        {/* Repo + status */}
-                        <div className="space-y-2">
-                            <h1 className="font-arcade text-2xl text-[#f3ffca] uppercase leading-tight break-all">
-                                {job.repository.repoOwner}/{job.repository.repoName}
-                            </h1>
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-end">
+                        <div className="md:col-span-8">
                             <StatusChip status={job.status} />
+                            <h1 className="font-arcade text-5xl text-white uppercase leading-none break-all mt-6 shadow-sm">
+                                {job.repository.repoOwner}/<span className="text-[#cafd00]">{job.repository.repoName}</span>
+                            </h1>
                         </div>
-
-                        {/* Stats */}
-                        <div className="grid grid-cols-3 gap-2">
-                            <StatBox label="TOTAL" value={totalTests} color="primary" />
-                            <StatBox label="PASS" value={passedTests} color="green" />
-                            <StatBox label="FAIL" value={failedTests} color="red" />
+                        
+                        <div className="md:col-span-4 flex gap-4 md:justify-end">
+                            <StatBox label="TOTAL TESTS" value={totalTests} color="primary" />
+                            <StatBox label="PASSED" value={passedTests} color="green" />
+                            <StatBox label="FAILED" value={failedTests} color="red" />
                         </div>
+                    </div>
+                </div>
 
-                        {/* AI Summary */}
-                        {job.summary && (
-                            <SidebarCollapsible label="AI_SUMMARY" defaultOpen={true}>
-                                <p className="text-[#a7aabb] text-xs leading-relaxed font-body">
+                {/* ── BENTO GRID LAYOUT ───────────────────────────────────────── */}
+                <div className="space-y-12">
+                    
+                    {/* ROW 1: Summary & Execution Variables */}
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
+                        
+                        {/* Mission Summary Pane */}
+                        <div className="lg:col-span-8 bg-[#141928] border-l-4 border-[#fc8700] p-6 shadow-[8px_8px_0px_0px_rgba(20,25,40,0.5)]">
+                            <h2 className="font-arcade text-2xl text-[#e2e4f6] uppercase tracking-wider mb-4 flex items-center gap-3">
+                                <TerminalSquare className="w-6 h-6 text-[#fc8700]"/>
+                                Terminal Summary
+                            </h2>
+                            {job.summary ? (
+                                <p className="text-[#a7aabb] text-sm leading-relaxed font-body">
                                     {job.summary.replace(/<task_summary>/gi, "").replace(/<\/task_summary>/gi, "").replace(/\\n/g, " ").trim()}
                                 </p>
-                            </SidebarCollapsible>
-                        )}
-
-                        {/* Bug digest */}
-                        {job.bugs.length > 0 && (
-                            <SidebarCollapsible label={`BUGS_FOUND (${job.bugs.length})`} defaultOpen={true}>
-                                <div className="space-y-2">
-                                    {job.bugs.map((bug) => (
-                                        <button
-                                            key={bug.id}
-                                            onClick={() => setActiveTab("bugs")}
-                                            className="w-full text-left group"
-                                        >
-                                            <div className="flex items-start gap-2">
-                                                <span className={`mt-1 shrink-0 w-2 h-2 rounded-full ${bug.confidence === "HIGH" ? "bg-[#ff7351]" : bug.confidence === "MEDIUM" ? "bg-[#fc8700]" : "bg-[#717584]"}`} />
-                                                <div>
-                                                    <p className="text-[#e2e4f6] text-xs font-medium leading-tight group-hover:text-[#f3ffca] transition-colors line-clamp-2">
-                                                        {bug.message}
-                                                    </p>
-                                                    {bug.sourceFile && (
-                                                        <p className="text-[#717584] text-[10px] font-mono mt-0.5 truncate">{bug.sourceFile}</p>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </button>
-                                    ))}
+                            ) : (
+                                <p className="text-[#a7aabb] text-xs leading-relaxed font-body italic">No summary generated.</p>
+                            )}
+                            {job.bugDescription && (
+                                <div className="mt-4 pt-4 border-t border-[#1a1f2f]">
+                                    <span className="text-[#717584] text-[10px] uppercase tracking-widest font-mono block mb-2">Original Mission Brief:</span>
+                                    <p className="text-[#e2e4f6] text-xs font-mono">{job.bugDescription}</p>
                                 </div>
-                            </SidebarCollapsible>
-                        )}
+                            )}
+                        </div>
 
-                        {/* Tech details */}
-                        {(Object.keys(discoveryInfo).length > 0 || Object.keys(serverInfo).length > 0) && (
-                            <SidebarCollapsible label="TECH_DETAILS" defaultOpen={false}>
-                                <div className="space-y-1.5 text-xs font-mono">
-                                    {discoveryInfo.framework && <TechRow k="Framework" v={discoveryInfo.framework} />}
-                                    {discoveryInfo.backendFramework && <TechRow k="Backend" v={discoveryInfo.backendFramework} />}
-                                    {discoveryInfo.frontendFramework && <TechRow k="Frontend" v={discoveryInfo.frontendFramework} />}
-                                    {discoveryInfo.entryPoint && <TechRow k="Entry" v={discoveryInfo.entryPoint} />}
-                                    {discoveryInfo.backendEntryPoint && <TechRow k="BE Entry" v={discoveryInfo.backendEntryPoint} />}
-                                    {discoveryInfo.frontendEntryPoint && <TechRow k="FE Entry" v={discoveryInfo.frontendEntryPoint} />}
-                                    {discoveryInfo.moduleType && <TechRow k="Module" v={discoveryInfo.moduleType} />}
-                                    {discoveryInfo.databaseUsed !== undefined && <TechRow k="Database" v={discoveryInfo.databaseUsed ? "Yes" : "No"} />}
-                                    {serverInfo.port && <TechRow k="Port" v={String(serverInfo.port)} />}
-                                    {serverInfo.backendPort && <TechRow k="BE Port" v={String(serverInfo.backendPort)} />}
-                                    {serverInfo.frontendPort && <TechRow k="FE Port" v={String(serverInfo.frontendPort)} />}
+                        {/* Tech Details Box */}
+                        <div className="lg:col-span-4 bg-[#0e0e0e] border border-[#1a1f2f] p-6 hover:border-[#444756] transition-colors relative group h-full">
+                            {(Object.keys(discoveryInfo).length > 0 || Object.keys(serverInfo).length > 0) ? (
+                                <>
+                                    <div className="absolute top-0 right-0 w-8 h-8 bg-[#f3ffca]/10 group-hover:bg-[#f3ffca]/20 transition-colors flex items-center justify-center">
+                                        <Server className="w-4 h-4 text-[#cafd00]" />
+                                    </div>
+                                    <h3 className="font-label text-xs uppercase text-[#717584] tracking-widest mb-6">Execution Variables</h3>
+                                    <div className="space-y-2 text-xs font-mono">
+                                        {discoveryInfo.framework && <TechRow k="Framework" v={discoveryInfo.framework} />}
+                                        {discoveryInfo.backendFramework && <TechRow k="Backend" v={discoveryInfo.backendFramework} />}
+                                        {discoveryInfo.frontendFramework && <TechRow k="Frontend" v={discoveryInfo.frontendFramework} />}
+                                        {discoveryInfo.entryPoint && <TechRow k="Entry" v={discoveryInfo.entryPoint} />}
+                                        {discoveryInfo.backendEntryPoint && <TechRow k="BE Entry" v={discoveryInfo.backendEntryPoint} />}
+                                        {discoveryInfo.frontendEntryPoint && <TechRow k="FE Entry" v={discoveryInfo.frontendEntryPoint} />}
+                                        {discoveryInfo.moduleType && <TechRow k="Module" v={discoveryInfo.moduleType} />}
+                                        {discoveryInfo.databaseUsed !== undefined && <TechRow k="Database" v={discoveryInfo.databaseUsed ? "Yes" : "No"} />}
+                                        {serverInfo.port && <TechRow k="Port" v={String(serverInfo.port)} />}
+                                        {serverInfo.backendPort && <TechRow k="BE Port" v={String(serverInfo.backendPort)} />}
+                                        {serverInfo.frontendPort && <TechRow k="FE Port" v={String(serverInfo.frontendPort)} />}
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="h-full flex items-center justify-center">
+                                    <p className="text-[#717584] text-xs font-label uppercase tracking-widest text-center">No variables captured.</p>
                                 </div>
-                            </SidebarCollapsible>
-                        )}
-
-                        {/* Bug description */}
-                        <SidebarCollapsible label="MISSION_BRIEF" defaultOpen={false}>
-                            <p className="text-[#a7aabb] text-xs leading-relaxed font-body">{job.bugDescription}</p>
-                        </SidebarCollapsible>
-                    </div>
-                </aside>
-
-                {/* ── RIGHT MAIN PANEL ────────────────────────────────── */}
-                <main className="flex-1 min-h-[calc(100vh-48px)] flex flex-col">
-
-                    {/* Tab bar */}
-                    <div className="sticky top-12 z-10 bg-[#0e1320] border-b-2 border-[#1a1f2f] flex items-stretch">
-                        <TabButton active={activeTab === "bugs"} onClick={() => setActiveTab("bugs")} count={job.bugs.length} color="red">
-                            BUGS
-                        </TabButton>
-                        <TabButton active={activeTab === "tests"} onClick={() => setActiveTab("tests")} count={job.tests.length} color="primary">
-                            TESTS
-                        </TabButton>
-                        {/* Spacer shows section counts */}
-                        <div className="flex-1 flex items-center justify-end px-6 gap-4 text-[#717584] text-[10px] font-mono uppercase">
-                            <span className="text-[#cafd00]/60">{passedTests} passed</span>
-                            <span className="text-[#ff7351]/60">{failedTests} failed</span>
+                            )}
                         </div>
                     </div>
 
-                    {/* Tab content */}
-                    <div className="flex-1 p-6 space-y-4">
-                        {activeTab === "bugs" && (
-                            <BugsPanel bugs={job.bugs as Bug[]} />
-                        )}
-                        {activeTab === "tests" && (
-                            <TestsPanel tests={job.tests as Test[]} />
-                        )}
+                    {/* ROW 2: Bugs Detection Grid */}
+                    <div className="space-y-4">
+                        <h2 className="font-arcade text-3xl text-white uppercase flex items-center gap-4">
+                            BUGS_DETECTED 
+                            <span className="text-[#ff7351] text-lg bg-[#ff7351]/10 px-3 py-1">{job.bugs.length}</span>
+                        </h2>
+                        <BugsPanel bugs={job.bugs as Bug[]} />
                     </div>
-                </main>
-            </div>
+
+                    {/* ROW 3: Tests Block */}
+                    <div className="space-y-4">
+                        <h2 className="font-arcade text-3xl text-white uppercase flex items-center justify-between border-b-2 border-[#1a1f2f] pb-4 mt-8">
+                            TESTS RUN
+                        </h2>
+                        <TestsPanel tests={job.tests as Test[]} />
+                    </div>
+                </div>
+            </main>
         </div>
     );
 }
 
-// ─── Sidebar helpers ─────────────────────────────────────────────────────────
+// ─── Component Helpers ─────────────────────────────────────────────────────────
 
 function StatBox({ label, value, color }: { label: string; value: number; color: "primary" | "green" | "red" }) {
     const colors = {
-        primary: "text-[#f3ffca] border-[#f3ffca]/20 bg-[#f3ffca]/5",
-        green: "text-[#cafd00] border-[#cafd00]/20 bg-[#cafd00]/5",
-        red: "text-[#ff7351] border-[#ff7351]/20 bg-[#ff7351]/5",
+        primary: "text-[#f3ffca] border-[#f3ffca]/30 bg-[#f3ffca]/5 shadow-[2px_2px_0px_0px_rgba(243,255,202,0.3)]",
+        green: "text-[#cafd00] border-[#cafd00]/30 bg-[#cafd00]/5 shadow-[2px_2px_0px_0px_rgba(202,253,0,0.3)]",
+        red: "text-[#ff7351] border-[#ff7351]/30 bg-[#ff7351]/5 shadow-[2px_2px_0px_0px_rgba(255,115,81,0.3)]",
     };
     return (
-        <div className={`border flex flex-col items-center py-2 px-1 ${colors[color]}`}>
-            <span className="font-arcade text-2xl leading-none">{value}</span>
-            <span className="text-[9px] uppercase tracking-widest font-label opacity-70 mt-0.5">{label}</span>
+        <div className={`border-2 flex flex-col justify-center py-4 px-6 min-w-[120px] ${colors[color]}`}>
+            <span className="text-[10px] uppercase tracking-widest font-label opacity-70 mb-1">{label}</span>
+            <span className="font-arcade text-4xl leading-none">{String(value).padStart(2, '0')}</span>
         </div>
     );
 }
 
 function TechRow({ k, v }: { k: string; v: string }) {
     return (
-        <div className="flex items-center gap-2">
-            <span className="text-[#717584] shrink-0">{k}:</span>
-            <code className="text-[#f3ffca] bg-[#1a1f2f] px-1 truncate text-[10px]">{v}</code>
-        </div>
-    );
-}
-
-function SidebarCollapsible({ label, children, defaultOpen }: { label: string; children: React.ReactNode; defaultOpen: boolean }) {
-    const [open, setOpen] = useState(defaultOpen);
-    return (
-        <div className="border border-[#1a1f2f]">
-            <button
-                onClick={() => setOpen(!open)}
-                className="w-full flex items-center justify-between px-3 py-2 bg-[#0e1320] hover:bg-[#1a1f2f] transition-colors"
-            >
-                <span className="text-[#fc8700] font-arcade text-sm uppercase tracking-wider">{label}</span>
-                <ChevronDown className={`w-3.5 h-3.5 text-[#717584] transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
-            </button>
-            {open && <div className="p-3 bg-[#000000]/30">{children}</div>}
+        <div className="flex justify-between items-center py-1.5 border-b border-[#1a1f2f] last:border-0">
+            <span className="text-[#a7aabb]">{k}</span>
+            <code className="text-[#cafd00]">{v}</code>
         </div>
     );
 }
 
 function StatusChip({ status }: { status: string }) {
     const config: Record<string, { bg: string; text: string; label: string }> = {
-        COMPLETED: { bg: "bg-[#cafd00]/10 border border-[#cafd00]/30", text: "text-[#cafd00]", label: "● COMPLETED" },
-        FAILED: { bg: "bg-[#ff7351]/10 border border-[#ff7351]/30", text: "text-[#ff7351]", label: "✗ FAILED" },
-        PENDING: { bg: "bg-[#717584]/10 border border-[#717584]/30", text: "text-[#717584]", label: "○ PENDING" },
-        ANALYZING: { bg: "bg-[#fc8700]/10 border border-[#fc8700]/30", text: "text-[#fc8700]", label: "◈ ANALYZING" },
-        SETTING_UP: { bg: "bg-[#fc8700]/10 border border-[#fc8700]/30", text: "text-[#fc8700]", label: "◈ SETTING_UP" },
-        TESTING: { bg: "bg-[#fc8700]/10 border border-[#fc8700]/30", text: "text-[#fc8700]", label: "◈ TESTING" },
+        COMPLETED: { bg: "bg-[#cafd00]", text: "text-black", label: "COMPLETED MISSION" },
+        FAILED: { bg: "bg-[#ff7351]", text: "text-black", label: "FAILED MISSION" },
+        PENDING: { bg: "bg-[#717584]", text: "text-black", label: "PENDING MISSION" },
+        ANALYZING: { bg: "bg-[#fc8700]", text: "text-black", label: "ANALYZING TARGET" },
+        SETTING_UP: { bg: "bg-[#fc8700]", text: "text-black", label: "SETTING UP FOR BATTLE" },
+        TESTING: { bg: "bg-[#fc8700]", text: "text-black", label: "ENGAGED IN TESTING" },
     };
     const c = config[status] ?? config.PENDING;
+    // Glitchy bar effect next to the chip
     return (
-        <span className={`inline-flex items-center px-2.5 py-1 font-arcade text-sm uppercase ${c.bg} ${c.text}`}>
-            {c.label}
-        </span>
-    );
-}
-
-function TabButton({ active, onClick, count, color, children }: {
-    active: boolean; onClick: () => void; count: number;
-    color: "red" | "primary"; children: React.ReactNode;
-}) {
-    const activeColors = {
-        red: "border-b-2 border-[#ff7351] text-[#ff7351] bg-[#ff7351]/5",
-        primary: "border-b-2 border-[#cafd00] text-[#cafd00] bg-[#cafd00]/5",
-    };
-    return (
-        <button
-            onClick={onClick}
-            className={`flex items-center gap-2 px-6 py-4 font-arcade text-lg uppercase tracking-widest transition-all ${active ? activeColors[color] : "text-[#717584] hover:text-[#a7aabb] border-b-2 border-transparent"}`}
-        >
-            {children}
-            <span className={`text-xs font-label px-1.5 py-0.5 ${active ? (color === "red" ? "bg-[#ff7351]/20 text-[#ff7351]" : "bg-[#cafd00]/20 text-[#cafd00]") : "bg-[#1a1f2f] text-[#717584]"}`}>
-                {count}
+        <div className="flex items-center gap-3">
+            <span className={`inline-flex items-center px-3 py-1 font-arcade text-sm uppercase tracking-widest shadow-sm ${c.bg} ${c.text}`}>
+                {c.label}
             </span>
-        </button>
+            <div className="h-1 w-16 bg-[#1a1f2f] overflow-hidden flex">
+                <div className={`h-full w-full ${c.bg} opacity-50`} style={{ animation: "scanLine 2s ease-in-out infinite" }}></div>
+            </div>
+        </div>
     );
 }
 
@@ -368,17 +318,17 @@ function TabButton({ active, onClick, count, color, children }: {
 function BugsPanel({ bugs }: { bugs: Bug[] }) {
     if (bugs.length === 0) {
         return (
-            <div className="flex flex-col items-center justify-center h-64 gap-4">
-                <span className="font-arcade text-6xl text-[#cafd00]">✓</span>
+            <div className="flex flex-col items-center justify-center p-12 bg-[#1a1f2f]/30 border-2 border-dashed border-[#cafd00]/30 h-full">
+                <span className="font-arcade text-8xl text-[#cafd00] mb-6 drop-shadow-[0_0_15px_rgba(202,253,0,0.5)]">✓</span>
                 <p className="font-arcade text-2xl text-[#cafd00] uppercase tracking-widest">NO BUGS DETECTED</p>
-                <p className="text-[#717584] text-sm font-body">All tests passed cleanly.</p>
+                <p className="text-[#717584] text-sm font-label uppercase tracking-widest mt-2">All tests passed cleanly.</p>
             </div>
         );
     }
     return (
-        <div className="space-y-4">
+        <div className="space-y-6">
             <p className="text-[#717584] text-xs font-mono uppercase tracking-widest">
-                {bugs.length} confirmed bug{bugs.length !== 1 ? "s" : ""} — sorted by confidence
+                Sorted by threat level (Confidence)
             </p>
             {bugs.map((bug, i) => (
                 <BugCard key={bug.id} bug={bug} index={i + 1} />
@@ -392,49 +342,50 @@ function BugCard({ bug, index }: { bug: Bug; index: number }) {
     const fixes = parseSuggestedFixes(bug.suggestedFixes);
 
     const confidenceConfig = {
-        HIGH: { border: "border-l-[#ff7351]", bg: "bg-[#ff7351]/5", badge: "bg-[#ff7351]/20 text-[#ff7351] border border-[#ff7351]/40" },
-        MEDIUM: { border: "border-l-[#fc8700]", bg: "bg-[#fc8700]/5", badge: "bg-[#fc8700]/20 text-[#fc8700] border border-[#fc8700]/40" },
-        LOW: { border: "border-l-[#717584]", bg: "bg-[#717584]/5", badge: "bg-[#717584]/20 text-[#a7aabb] border border-[#717584]/40" },
+        HIGH: { border: "border-t-[#ff7351]", bg: "bg-[#ff7351]/5", badge: "bg-[#ff7351]/20 text-[#ff7351] border border-[#ff7351]/40" },
+        MEDIUM: { border: "border-t-[#fc8700]", bg: "bg-[#fc8700]/5", badge: "bg-[#fc8700]/20 text-[#fc8700] border border-[#fc8700]/40" },
+        LOW: { border: "border-t-[#717584]", bg: "bg-[#717584]/5", badge: "bg-[#717584]/20 text-[#a7aabb] border border-[#717584]/40" },
     };
     const c = confidenceConfig[bug.confidence] ?? confidenceConfig.LOW;
 
     return (
         <div
-            className={`border-l-4 ${c.border} ${c.bg} bg-[#141928] border border-[#1a1f2f] border-l-0 animate-fade-in-up`}
+            className={`border-t-4 ${c.border} bg-[#0e0e0e] border-[1px] border-[#1a1f2f] transition-all hover:bg-[#141928] animate-fade-in-up`}
             style={{ animationDelay: `${(index - 1) * 60}ms` }}
         >
             {/* Card header */}
-            <div className="px-5 pt-4 pb-3">
-                <div className="flex items-start justify-between gap-3 mb-3">
-                    <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-arcade text-[#717584] text-sm">#{String(index).padStart(2, "0")}</span>
-                        <span className={`font-arcade text-sm uppercase px-2 py-0.5 ${c.badge}`}>
+            <div className="p-6">
+                <div className="flex items-start justify-between gap-3 mb-6">
+                    <div className="flex items-center gap-3 flex-wrap">
+                        <span className="font-arcade text-2xl text-[#717584]">#{String(index).padStart(2, "0")}</span>
+                        <span className={`font-label text-xs uppercase tracking-widest px-3 py-1 ${c.badge}`}>
                             {bug.confidence} CONFIDENCE
                         </span>
                         {bug.affectedLayer && (
-                            <span className="font-label text-[10px] uppercase tracking-wider px-2 py-0.5 bg-[#1a1f2f] text-[#a7aabb] border border-[#444756]/40">
+                            <span className="font-label text-[10px] uppercase tracking-wider px-3 py-1 bg-[#1a1f2f] text-[#a7aabb]">
                                 {formatAffectedLayer(bug.affectedLayer)}
                             </span>
                         )}
                     </div>
                     {bug.sourceFile && (
-                        <code className="text-[#717584] text-[10px] font-mono shrink-0 mt-0.5">{bug.sourceFile}</code>
+                        <code className="text-[#a7aabb] bg-[#1a1f2f] px-2 py-1 text-xs font-mono shrink-0">{bug.sourceFile}</code>
                     )}
                 </div>
 
-                <h3 className="text-[#e2e4f6] font-display font-bold text-lg leading-snug mb-2">
+                <h3 className="text-[#ffffff] font-arcade text-xl leading-snug mb-4">
                     {bug.message}
                 </h3>
 
                 {bug.rootCause && (
-                    <p className="text-[#a7aabb] text-sm font-body leading-relaxed mb-2">
-                        <span className="text-[#fc8700] font-semibold">Root Cause: </span>{bug.rootCause}
-                    </p>
+                    <div className="bg-[#000000] border border-[#1a1f2f] p-4 text-sm font-body leading-relaxed mb-4">
+                        <span className="text-[#fc8700] font-bold block mb-1 font-label uppercase tracking-widest text-[10px]">Root Cause_</span>
+                        <span className="text-[#a7aabb]">{bug.rootCause}</span>
+                    </div>
                 )}
 
                 {bug.testFile && (
-                    <p className="text-[#717584] text-[11px] font-mono">
-                        Detected by: <span className="text-[#a7aabb]">{bug.testFile}</span>
+                    <p className="text-[#717584] text-xs font-mono mt-4">
+                        Detected during: <span className="text-[#cafd00]">{bug.testFile}</span>
                         {bug.testName && <span className="text-[#717584]"> → {bug.testName}</span>}
                     </p>
                 )}
@@ -445,67 +396,49 @@ function BugCard({ bug, index }: { bug: Bug; index: number }) {
                 <div className="border-t border-[#1a1f2f]">
                     <button
                         onClick={() => setIsExpanded(!isExpanded)}
-                        className="w-full flex items-center justify-between px-5 py-3 hover:bg-[#1a1f2f]/50 transition-colors"
+                        className="w-full flex items-center justify-between px-6 py-4 hover:bg-[#fc8700]/10 transition-colors"
                     >
-                        <div className="flex items-center gap-2">
-                            <Sparkles className="w-3.5 h-3.5 text-[#fc8700]" />
-                            <span className="font-arcade text-sm text-[#fc8700] uppercase tracking-wider">
-                                Suggested Fixes
+                        <div className="flex items-center gap-3">
+                            <Sparkles className="w-5 h-5 text-[#fc8700]" />
+                            <span className="font-arcade text-lg text-[#fc8700] uppercase tracking-wider">
+                                View Patches
                             </span>
-                            <span className="text-[10px] px-1.5 py-0.5 bg-[#fc8700]/20 text-[#fc8700] font-label">
+                            <span className="text-xs px-2 py-0.5 bg-[#fc8700]/20 text-[#fc8700] font-arcade">
                                 {fixes.length}
                             </span>
                         </div>
-                        <ChevronDown className={`w-4 h-4 text-[#717584] transition-transform duration-300 ${isExpanded ? "rotate-180" : ""}`} />
+                        <ChevronDown className={`w-6 h-6 text-[#717584] transition-transform duration-300 ${isExpanded ? "rotate-180" : ""}`} />
                     </button>
 
                     <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isExpanded ? "max-h-[8000px] opacity-100" : "max-h-0 opacity-0"}`}>
-                        <div className="px-5 pb-5 space-y-5">
+                        <div className="px-6 pb-6 space-y-8 bg-[#000000]/50 pt-4 border-t border-[#1a1f2f]">
                             {fixes.map((fix, fi) => (
-                                <div key={`${fix.filePath}-${fi}`} className="space-y-3">
-                                    <div className="flex items-center gap-2 pt-3">
+                                <div key={`${fix.filePath}-${fi}`} className="space-y-4">
+                                    <div className="flex items-center gap-3 pb-2 border-b border-[#1a1f2f]">
                                         {fix.type === "modify"
-                                            ? <FileEdit className="w-3.5 h-3.5 text-[#a7aabb]" />
-                                            : <Sparkles className="w-3.5 h-3.5 text-[#a7aabb]" />}
-                                        <span className="text-[10px] uppercase tracking-wider text-[#a7aabb] font-label">
-                                            {fix.type === "modify" ? "Modify" : "New File"}
+                                            ? <FileEdit className="w-4 h-4 text-[#a7aabb]" />
+                                            : <Sparkles className="w-4 h-4 text-[#a7aabb]" />}
+                                        <span className="text-xs uppercase tracking-wider text-[#a7aabb] font-label">
+                                            {fix.type === "modify" ? "Target Modification" : "New File Creation"}
                                         </span>
-                                        <code className="text-[10px] font-mono text-[#f3ffca] bg-[#1a1f2f] px-2 py-0.5">
+                                        <code className="text-xs font-mono text-[#f3ffca] bg-[#1a1f2f] px-2 py-0.5 ml-auto">
                                             {fix.filePath}
                                         </code>
                                     </div>
 
-                                    <div className={`grid gap-3 ${fix.existingSnippet ? "md:grid-cols-2" : "grid-cols-1"}`}>
+                                    <div className={`grid gap-4 ${fix.existingSnippet ? "xl:grid-cols-2" : "grid-cols-1"}`}>
                                         {fix.existingSnippet && (
                                             <div>
-                                                <div className="flex items-center gap-2 mb-1.5">
-                                                    <div className="w-1 h-3 bg-[#ff7351]" />
-                                                    <span className="text-[10px] text-[#ff7351] font-label uppercase tracking-wider">Before</span>
-                                                </div>
-                                                <div className="border border-[#ff7351]/20 bg-[#ff7351]/5 overflow-hidden">
-                                                    <div className="bg-[#ff7351]/10 px-3 py-1 border-b border-[#ff7351]/20">
-                                                        <span className="text-[10px] text-[#ff7351] font-mono">current code</span>
-                                                    </div>
-                                                    <div className="p-3">
-                                                        <CodeBlock code={fix.existingSnippet} language="javascript" showCopyButton={true} />
-                                                    </div>
+                                                <div className="text-xs text-[#ff7351] font-label uppercase tracking-widest mb-2 bg-[#ff7351]/10 px-3 py-1 border border-[#ff7351]/20 inline-block">Current Bad Logic</div>
+                                                <div className="border border-[#ff7351]/30">
+                                                    <CodeBlock code={fix.existingSnippet} language="javascript" showCopyButton={true} />
                                                 </div>
                                             </div>
                                         )}
                                         <div>
-                                            <div className="flex items-center gap-2 mb-1.5">
-                                                <div className="w-1 h-3 bg-[#cafd00]" />
-                                                <span className="text-[10px] text-[#cafd00] font-label uppercase tracking-wider">
-                                                    {fix.type === "modify" ? "After" : "New Content"}
-                                                </span>
-                                            </div>
-                                            <div className="border border-[#cafd00]/20 bg-[#cafd00]/5 overflow-hidden">
-                                                <div className="bg-[#cafd00]/10 px-3 py-1 border-b border-[#cafd00]/20">
-                                                    <span className="text-[10px] text-[#cafd00] font-mono">suggested fix</span>
-                                                </div>
-                                                <div className="p-3">
-                                                    <CodeBlock code={fix.updatedSnippet} language="javascript" showCopyButton={true} />
-                                                </div>
+                                            <div className="text-xs text-[#cafd00] font-label uppercase tracking-widest mb-2 bg-[#cafd00]/10 px-3 py-1 border border-[#cafd00]/20 inline-block">Generated Patch</div>
+                                            <div className="border border-[#cafd00]/30 shadow-[0_0_15px_rgba(202,253,0,0.1)]">
+                                                <CodeBlock code={fix.updatedSnippet} language="javascript" showCopyButton={true} />
                                             </div>
                                         </div>
                                     </div>
@@ -526,10 +459,6 @@ function TestsPanel({ tests }: { tests: Test[] }) {
 
     const backendTests = tests.filter(t => !isFullStackTest(t));
     const fullStackTests = tests.filter(isFullStackTest);
-    const backendPass = backendTests.filter(t => t.status === "PASS").length;
-    const backendFail = backendTests.filter(t => t.status !== "PASS").length;
-    const browserPass = fullStackTests.filter(t => t.status === "PASS").length;
-    const browserFail = fullStackTests.filter(t => t.status !== "PASS").length;
 
     const applyFilter = (arr: Test[]) => {
         if (filter === "passed") return arr.filter(t => t.status === "PASS");
@@ -549,56 +478,39 @@ function TestsPanel({ tests }: { tests: Test[] }) {
 
     if (tests.length === 0) {
         return (
-            <div className="flex flex-col items-center justify-center h-64 gap-3">
-                <p className="font-arcade text-2xl text-[#717584] uppercase tracking-widest">NO TESTS RECORDED</p>
+            <div className="flex flex-col items-center justify-center p-12 bg-[#1a1f2f]/30 border-2 border-dashed border-[#444756] h-32">
+                <p className="font-arcade text-xl text-[#717584] uppercase tracking-widest">ZERO DATA</p>
             </div>
         );
     }
 
     return (
-        <div className="space-y-5">
-            {/* Filter tabs + coverage */}
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1">
-                    {(["all", "passed", "failed"] as const).map(f => (
-                        <button
-                            key={f}
-                            onClick={() => setFilter(f)}
-                            className={`px-4 py-1.5 font-arcade text-sm uppercase tracking-wider transition-all ${filter === f
-                                ? f === "passed" ? "bg-[#cafd00] text-[#000000]"
-                                    : f === "failed" ? "bg-[#ff7351] text-[#000000]"
-                                        : "bg-[#f3ffca] text-[#000000]"
-                                : "bg-[#1a1f2f] text-[#717584] hover:text-[#a7aabb]"}`}
-                        >
-                            {f} ({f === "all" ? tests.length : f === "passed" ? tests.filter(t => t.status === "PASS").length : tests.filter(t => t.status !== "PASS").length})
-                        </button>
-                    ))}
-                </div>
-                <div className="flex items-center gap-4 text-[10px] font-mono text-[#717584] uppercase">
-                    {fullStackTests.length > 0 && (
-                        <span className={browserFail > 0 ? "text-[#fc8700]" : "text-[#cafd00]/70"}>
-                            Browser: {browserPass}✓ {browserFail}✗
-                        </span>
-                    )}
-                    {backendTests.length > 0 && (
-                        <span className={backendFail > 0 ? "text-[#fc8700]" : "text-[#cafd00]/70"}>
-                            API: {backendPass}✓ {backendFail}✗
-                        </span>
-                    )}
-                </div>
+        <div className="space-y-6">
+            {/* Filter buttons */}
+            <div className="flex items-center gap-2 mb-4">
+                {(["all", "passed", "failed"] as const).map(f => (
+                    <button
+                        key={f}
+                        onClick={() => setFilter(f)}
+                        className={`px-4 py-2 font-label text-[10px] uppercase tracking-widest transition-all border ${filter === f
+                            ? f === "passed" ? "bg-[#cafd00]/20 text-[#cafd00] border-[#cafd00]"
+                                : f === "failed" ? "bg-[#ff7351]/20 text-[#ff7351] border-[#ff7351]"
+                                    : "bg-[#f3ffca]/20 text-[#f3ffca] border-[#f3ffca]"
+                            : "bg-[#1a1f2f] text-[#717584] border-transparent hover:border-[#444756]"}`}
+                    >
+                        {f} ({f === "all" ? tests.length : f === "passed" ? tests.filter(t => t.status === "PASS").length : tests.filter(t => t.status !== "PASS").length})
+                    </button>
+                ))}
             </div>
 
-            {/* Browser edge cases */}
+            {/* Browser tests (Grouped) */}
             {Array.from(fullStackByFeature.entries()).map(([featureName, featureTests]) => (
-                <div key={featureName} className="border border-[#1a1f2f] bg-[#141928]">
-                    <div className="flex items-center gap-3 px-4 py-3 border-b border-[#1a1f2f] bg-[#0e1320]">
-                        <span className="font-arcade text-xs text-[#fc8700] uppercase px-1.5 py-0.5 border border-[#fc8700]/30 bg-[#fc8700]/10">Browser</span>
-                        <span className="text-[#e2e4f6] font-display font-semibold text-sm">{featureName}</span>
-                        <span className="text-[#717584] text-xs font-mono ml-auto">
-                            {featureTests.length} case{featureTests.length !== 1 ? "s" : ""}
-                        </span>
+                <div key={featureName} className="bg-[#141928] border border-[#1a1f2f]">
+                    <div className="px-5 py-3 border-b border-[#1a1f2f] bg-[#0e0e0e] flex items-center justify-between">
+                        <span className="font-arcade text-xs text-[#fc8700] uppercase tracking-wider">Browser Core</span>
+                        <span className="text-[#a7aabb] font-label text-[10px] uppercase tracking-widest">{featureName}</span>
                     </div>
-                    <div className="divide-y divide-[#1a1f2f]">
+                    <div className="divide-y divide-[#1a1f2f]/50">
                         {featureTests.map(test => (
                             <BrowserEdgeCaseRow key={test.id} test={test} />
                         ))}
@@ -606,16 +518,18 @@ function TestsPanel({ tests }: { tests: Test[] }) {
                 </div>
             ))}
 
-            {/* API test files */}
+            {/* API Tests */}
             {filteredBackend.length > 0 && (
-                <div className="space-y-2">
-                    <div className="flex items-center gap-3">
-                        <span className="font-arcade text-xs text-[#f3ffca] uppercase px-1.5 py-0.5 border border-[#f3ffca]/30 bg-[#f3ffca]/10">API Tests</span>
-                        <span className="text-[#717584] text-xs font-mono">{filteredBackend.length} file{filteredBackend.length !== 1 ? "s" : ""}</span>
+                <div className="bg-[#141928] border border-[#1a1f2f] mt-8">
+                    <div className="px-5 py-3 border-b border-[#1a1f2f] bg-[#0e0e0e] flex items-center justify-between">
+                        <span className="font-arcade text-xs text-[#b024ff] uppercase tracking-wider">API Validation</span>
+                        <span className="text-[#a7aabb] font-label text-[10px] uppercase tracking-widest">{filteredBackend.length} scripts</span>
                     </div>
-                    {filteredBackend.map(test => (
-                        <TestCard key={test.id} test={test} />
-                    ))}
+                    <div className="divide-y divide-[#1a1f2f]/50">
+                        {filteredBackend.map(test => (
+                            <TestCard key={test.id} test={test} />
+                        ))}
+                    </div>
                 </div>
             )}
         </div>
@@ -628,69 +542,81 @@ function BrowserEdgeCaseRow({ test }: { test: Test }) {
     const uiAssertions = parseUiAssertions(test.uiAssertions);
 
     const statusConfig = {
-        PASS: { dot: "bg-[#cafd00]", text: "text-[#cafd00]", label: "PASS", glow: "shadow-[0_0_6px_#cafd00]" },
-        FAIL: { dot: "bg-[#ff7351]", text: "text-[#ff7351]", label: "FAIL", glow: "shadow-[0_0_6px_#ff7351]" },
-        ERROR: { dot: "bg-[#fc8700]", text: "text-[#fc8700]", label: "ERR", glow: "shadow-[0_0_6px_#fc8700]" },
+        PASS: { bg: "bg-[#cafd00]/10", text: "text-[#cafd00]", border: "border-l-[#cafd00]" },
+        FAIL: { bg: "bg-[#ff7351]/10", text: "text-[#ff7351]", border: "border-l-[#ff7351]" },
+        ERROR: { bg: "bg-[#fc8700]/10", text: "text-[#fc8700]", border: "border-l-[#fc8700]" },
     } as const;
     const c = statusConfig[test.status] ?? statusConfig.FAIL;
 
     return (
-        <div className="px-4 py-3">
-            <div className="flex items-start gap-3">
-                <div className="flex items-center gap-2 shrink-0 mt-0.5">
-                    <span className={`w-2 h-2 rounded-full ${c.dot} ${c.glow}`} />
-                    <span className={`font-arcade text-xs uppercase ${c.text}`}>{c.label}</span>
+        <div className={`p-4 border-l-2 ${c.border} bg-[#000000]/30 hover:bg-[#1a1f2f] transition-all flex flex-col md:flex-row gap-4 items-start justify-between`}>
+            <div className="flex-1 min-w-0 space-y-3">
+                <div className="flex items-start gap-3">
+                    <div className={`mt-0.5 px-2 py-0.5 font-arcade text-[10px] uppercase shrink-0 ${c.bg} ${c.text}`}>
+                        {test.status}
+                    </div>
+                    <div>
+                        <p className="text-[#e2e4f6] text-sm font-label truncate mt-0.5 leading-none">{test.testName}</p>
+                        <div className="flex gap-3 text-[9px] font-mono mt-1 text-[#717584] uppercase tracking-widest">
+                            {test.executedAt && <span><span className="text-[#444756]">EXEC_</span> {new Date(test.executedAt).toLocaleTimeString()}</span>}
+                            {test.exitCode !== null && <span><span className="text-[#444756]">EXIT_</span> {test.exitCode}</span>}
+                        </div>
+                    </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                    <p className="text-[#e2e4f6] text-sm font-medium leading-tight">{test.testName}</p>
-                    <p className="text-[#717584] text-[10px] font-mono mt-0.5 truncate">{test.testFile}</p>
-                    {steps.length > 0 && (
-                        <p className="text-[#a7aabb] text-[10px] mt-1.5 flex items-center gap-1 flex-wrap">
-                            {steps.map((s, i) => (
-                                <span key={i} className="flex items-center gap-1">
-                                    {i > 0 && <ChevronRight className="w-2.5 h-2.5 text-[#444756]" />}
-                                    <span>{s}</span>
+
+                {(networkAssertions.length > 0 || uiAssertions.length > 0 || steps.length > 0 || test.output) && (
+                    <div className="pl-[3.5rem] space-y-1">
+                        {steps.length > 0 && (
+                            <p className="text-[#a7aabb] text-[10px] flex items-center gap-1 flex-wrap mb-2">
+                                {steps.map((s, i) => (
+                                    <span key={i} className="flex items-center gap-1">
+                                        {i > 0 && <ChevronRight className="w-2.5 h-2.5 text-[#fc8700]" />}
+                                        <span className="font-mono text-[#a7aabb] bg-[#1a1f2f] px-1 py-0.5 text-[9px]">{s}</span>
+                                    </span>
+                                ))}
+                            </p>
+                        )}
+                        {networkAssertions.map((a, i) => (
+                            <p key={`net-${i}`} className="text-[10px] font-mono text-[#a7aabb]">
+                                <span className="text-[#717584]">NET_ [</span>{a.method.toUpperCase()} <span className="text-white truncate max-w-[200px] sm:max-w-xs md:max-w-md inline-block align-bottom">{a.url}</span><span className="text-[#717584]">] : </span>
+                                <span className={a.passed ? "text-[#cafd00]" : "text-[#ff7351]"}>
+                                    {a.actualStatus} {a.passed ? "SUCCESS" : "CRITICAL"}
                                 </span>
-                            ))}
-                        </p>
-                    )}
-                </div>
-                {test.screenshotUrl && (
-                    <Dialog>
-                        <DialogTrigger asChild>
-                            <button className="shrink-0 w-20 h-14 border border-[#1a1f2f] hover:border-[#f3ffca]/30 overflow-hidden transition-colors">
-                                <img src={test.screenshotUrl} alt={test.testName} className="w-full h-full object-cover" />
-                            </button>
-                        </DialogTrigger>
-                        <DialogContent className="!w-[80vw] !max-w-none h-[80vh] p-1 !bg-[#0a0e1a] border-2 border-[#f3ffca]/20 overflow-hidden">
-                            <DialogTitle className="sr-only">{test.testName} screenshot</DialogTitle>
-                            <img src={test.screenshotUrl} alt="full screenshot" className="w-full h-full object-contain" />
-                        </DialogContent>
-                    </Dialog>
+                            </p>
+                        ))}
+                        {uiAssertions.map((a, i) => (
+                            <p key={`ui-${i}`} className="text-[10px] font-mono text-[#a7aabb] mt-1">
+                                <span className="text-[#717584]">UI_ [</span>{a.selector}<span className="text-[#717584]">] : </span>
+                                <span className={a.passed ? "text-[#cafd00]" : "text-[#ff7351]"}>
+                                    {a.passed ? "VALID" : `EXPECTED "${a.expected}" GOT "${a.actual}"`}
+                                </span>
+                            </p>
+                        ))}
+                        {test.output && (!networkAssertions.length && !uiAssertions.length) && (
+                            <p className="text-[10px] font-mono text-[#717584] max-h-32 overflow-y-auto mt-2 border-l-2 border-[#1a1f2f] pl-2">{test.output}</p>
+                        )}
+                    </div>
                 )}
             </div>
 
-            {(networkAssertions.length > 0 || uiAssertions.length > 0 || test.output) && (
-                <div className="mt-2 ml-[4.5rem] space-y-1">
-                    {networkAssertions.map((a, i) => (
-                        <p key={i} className="text-[10px] font-mono text-[#a7aabb]">
-                            <span className="text-[#717584]">Network:</span> {a.method.toUpperCase()} {a.url} →{" "}
-                            <span className={a.passed ? "text-[#cafd00]" : "text-[#ff7351]"}>
-                                {a.actualStatus} {a.passed ? "✓" : "✗"}
-                            </span>
-                        </p>
-                    ))}
-                    {uiAssertions.map((a, i) => (
-                        <p key={i} className="text-[10px] font-mono text-[#a7aabb]">
-                            <span className="text-[#717584]">UI:</span> {a.selector} →{" "}
-                            <span className={a.passed ? "text-[#cafd00]" : "text-[#ff7351]"}>
-                                {a.passed ? "✓" : `expected "${a.expected}" got "${a.actual}"`}
-                            </span>
-                        </p>
-                    ))}
-                    {test.output && !networkAssertions.length && !uiAssertions.length && (
-                        <p className="text-[10px] font-mono text-[#717584] line-clamp-2">{test.output}</p>
-                    )}
+            {test.screenshotUrl && (
+                <div className="shrink-0 w-32 h-20 md:mt-0 mt-2">
+                    <Dialog>
+                        <DialogTrigger asChild>
+                            <button className="w-full h-full border border-[#444756] hover:border-[#fc8700] hover:shadow-[0_0_10px_#fc8700] overflow-hidden transition-all bg-[#0e0e0e] rounded-sm group relative">
+                                <div className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                                    <span className="font-arcade text-[8px] text-[#fc8700] uppercase">View</span>
+                                </div>
+                                <img src={test.screenshotUrl} alt={test.testName} className="w-full h-full object-cover opacity-80 group-hover:opacity-100" />
+                            </button>
+                        </DialogTrigger>
+                        <DialogContent className="!w-[80vw] !max-w-[1400px] h-[85vh] p-4 !bg-[#0e0e0e] border-[3px] border-[#fc8700] overflow-hidden shadow-[0_0_50px_rgba(252,135,0,0.2)]">
+                            <DialogTitle className="font-arcade text-[#fc8700] uppercase tracking-widest">{test.testName}</DialogTitle>
+                            <div className="w-full h-full border border-[#444756] mt-4">
+                                <img src={test.screenshotUrl} alt="full screenshot" className="w-full h-full object-contain" />
+                            </div>
+                        </DialogContent>
+                    </Dialog>
                 </div>
             )}
         </div>
@@ -711,64 +637,54 @@ function TestCard({ test }: { test: Test }) {
     };
 
     const statusConfig = {
-        PASS: { dot: "bg-[#cafd00]", text: "text-[#cafd00]", label: "PASS", glow: "shadow-[0_0_6px_#cafd00]", border: "border-l-[#cafd00]" },
-        FAIL: { dot: "bg-[#ff7351]", text: "text-[#ff7351]", label: "FAIL", glow: "shadow-[0_0_6px_#ff7351]", border: "border-l-[#ff7351]" },
-        ERROR: { dot: "bg-[#fc8700]", text: "text-[#fc8700]", label: "ERR", glow: "shadow-[0_0_6px_#fc8700]", border: "border-l-[#fc8700]" },
+        PASS: { bg: "bg-[#cafd00]/10", text: "text-[#cafd00]", border: "border-l-[#cafd00]" },
+        FAIL: { bg: "bg-[#ff7351]/10", text: "text-[#ff7351]", border: "border-l-[#ff7351]" },
+        ERROR: { bg: "bg-[#fc8700]/10", text: "text-[#fc8700]", border: "border-l-[#fc8700]" },
     } as const;
     const c = statusConfig[test.status as keyof typeof statusConfig] ?? statusConfig.FAIL;
 
     return (
-        <div className={`border border-[#1a1f2f] border-l-2 ${c.border} bg-[#141928]`}>
+        <div className={`border-l-2 ${c.border} bg-[#000000]/30`}>
             <button
                 onClick={() => setIsExpanded(!isExpanded)}
-                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#1a1f2f]/40 transition-colors text-left"
+                className="w-full flex items-center justify-between px-4 py-3 hover:bg-[#1a1f2f] transition-colors text-left"
             >
-                <span className={`w-2 h-2 rounded-full shrink-0 ${c.dot} ${c.glow}`} />
-                <span className={`font-arcade text-xs uppercase tracking-wider ${c.text} shrink-0`}>{c.label}</span>
-                <div className="flex-1 min-w-0">
-                    <p className="text-[#e2e4f6] text-sm font-mono truncate">{test.testFile}</p>
-                    <p className="text-[#a7aabb] text-xs font-body truncate">{test.testName}</p>
+                <div className="flex items-center gap-3 overflow-hidden">
+                    <span className={`px-2 py-0.5 font-arcade text-[10px] uppercase shrink-0 ${c.bg} ${c.text}`}>{test.status}</span>
+                    <div className="flex flex-col gap-1 items-start">
+                        <span className="text-[#e2e4f6] text-xs font-mono truncate leading-none">{test.testFile}</span>
+                        <div className="flex gap-3 text-[9px] font-mono text-[#717584] uppercase tracking-widest leading-none">
+                            {test.executedAt && <span><span className="text-[#444756]">EXEC_</span> {new Date(test.executedAt).toLocaleTimeString()}</span>}
+                            {test.exitCode !== null && <span><span className="text-[#444756]">EXIT_</span> {test.exitCode}</span>}
+                        </div>
+                    </div>
                 </div>
                 <ChevronDown className={`w-4 h-4 text-[#717584] transition-transform duration-300 shrink-0 ${isExpanded ? "rotate-180" : ""}`} />
             </button>
 
             <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isExpanded ? "max-h-[5000px] opacity-100" : "max-h-0 opacity-0"}`}>
-                <div className="px-4 pb-4 space-y-3 border-t border-[#1a1f2f] pt-3">
+                <div className="p-4 bg-[#0e0e0e] border-t border-[#1a1f2f] space-y-4">
                     {test.output && (
                         <div>
-                            <div className="flex items-center gap-2 mb-1.5">
-                                <div className="w-1 h-3 bg-[#f3ffca]/50" />
-                                <span className="text-[10px] text-[#a7aabb] font-label uppercase tracking-wider">Console Output</span>
-                            </div>
-                            <div className="bg-[#000000] border border-[#1a1f2f] overflow-hidden">
-                                <div className="bg-[#0e1320] px-3 py-1 border-b border-[#1a1f2f]">
-                                    <span className="text-[10px] text-[#717584] font-mono">stderr/stdout</span>
-                                </div>
-                                <div className="p-3">
-                                    <CodeBlock code={test.output} language="bash" showCopyButton={false} />
-                                </div>
+                            <span className="text-[10px] text-[#a7aabb] font-label uppercase tracking-widest block mb-2">Terminal Printout_</span>
+                            <div className="border border-[#1a1f2f] shadow-[inset_0_0_10px_rgba(0,0,0,0.5)]">
+                                <CodeBlock code={test.output} language="bash" showCopyButton={false} />
                             </div>
                         </div>
                     )}
 
                     <div>
-                        <div className="flex items-center gap-2 mb-1.5">
-                            <div className="w-1 h-3 bg-[#cafd00]" />
-                            <span className="text-[10px] text-[#cafd00] font-label uppercase tracking-wider">Test Code</span>
+                        <div className="flex items-center justify-between mb-2">
+                            <span className="text-[10px] text-[#b024ff] font-label uppercase tracking-widest">Source Script_</span>
+                            <button
+                                onClick={handleDownload}
+                                className="text-[10px] text-[#b024ff] hover:text-white transition-colors font-arcade uppercase"
+                            >
+                                [⬇ Download]
+                            </button>
                         </div>
-                        <div className="bg-[#000000] border border-[#cafd00]/20 overflow-hidden">
-                            <div className="bg-[#cafd00]/10 px-3 py-1.5 border-b border-[#cafd00]/20 flex items-center justify-between">
-                                <span className="text-[10px] text-[#cafd00] font-mono">{test.testFile.split("/").pop()}</span>
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); handleDownload(); }}
-                                    className="text-[10px] text-[#cafd00]/70 hover:text-[#cafd00] flex items-center gap-1 transition-colors font-label uppercase tracking-wider"
-                                >
-                                    ↓ Download
-                                </button>
-                            </div>
-                            <div className="p-3">
-                                <CodeBlock code={test.fileContent} language="javascript" showCopyButton={true} />
-                            </div>
+                        <div className="border border-[#b024ff]/30 shadow-[0_0_15px_rgba(176,36,255,0.1)]">
+                            <CodeBlock code={test.fileContent} language="javascript" showCopyButton={true} />
                         </div>
                     </div>
                 </div>
@@ -780,31 +696,25 @@ function TestCard({ test }: { test: Test }) {
 // ─── Loading / Cancelled / NotFound States ───────────────────────────────────
 
 const FUNNY_MESSAGES = [
-    "DEPLOYING SENTINELS INTO THE CODEBASE...",
-    "TEACHING AI TO READ YOUR MIND (AND YOUR BUGS)...",
-    "SCANNING FOR SUSPICIOUS VARIABLES...",
-    "CALIBRATING SARCASM LEVELS...",
-    "NEGOTIATING WITH THE DATABASE...",
-    "SUMMONING THE DEBUGGING SPIRITS...",
-    "JUDGING YOUR VARIABLE NAMES...",
-    "ANALYZING LIFE CHOICES, ONE LINE AT A TIME...",
-    "CONVINCING BUGS TO REVEAL THEMSELVES...",
-    "ASKING STACK OVERFLOW FOR HELP...",
-    "BLAMING THE PREVIOUS DEVELOPER...",
-    "RETICULATING SPLINES...",
-    "CHANNELING SENIOR DEV ENERGY...",
-    "NEURAL NETWORKS GOSSIPING ABOUT YOUR PROJECT...",
-    "CALCULATING PROBABILITY OF YOU BEING WRONG...",
-    "PRETENDING TO UNDERSTAND ASYNC/AWAIT...",
-    "GHOSTS OF BUGS PAST HAVE BEEN SUMMONED...",
-    "DEPLOYING TINY ROBOTS THROUGH YOUR FUNCTIONS...",
+    "DEPLOYING SENTINELS INTO THE DATAFRAME...",
+    "BREACHING SERVER FIREWALLS...",
+    "REROUTING ENCRYPTION KEYS...",
+    "CALIBRATING NEON TUBES...",
+    "DISSECTING YOUR LOGIC GATES...",
+    "SPINNING UP SUB-PROCESSORS...",
+    "INSERTING QUARTERS...",
+    "WAITING FOR CLAUDE TO WAKE UP...",
+    "UPDATING HIGHSCORE LEADERBOARD...",
+    "INJECTING CAFFEINE INTO NODE_MODULES...",
+    "COMPUTING PROBABILITY OF SYNTAX ERRORS...",
+    "BATTLE CRUSIERS ENGAGING...",
 ];
 
 const STATUS_LABELS: Record<string, string> = {
-    PENDING: "QUEUED_FOR_ANALYSIS",
-    ANALYZING: "SCANNING_CODEBASE",
-    SETTING_UP: "INITIALIZING_SANDBOX",
-    TESTING: "EXECUTING_TEST_SUITE",
+    PENDING: "LOADING_CARTRIDGE",
+    ANALYZING: "INITIAL_SCAN",
+    SETTING_UP: "SPAWNING_ARENA",
+    TESTING: "BOSS_FIGHT_ACTIVE",
 };
 
 function LoadingState({ onBack, onCancel, isCancelling, status }: {
@@ -823,86 +733,55 @@ function LoadingState({ onBack, onCancel, isCancelling, status }: {
         return () => { clearInterval(msgTimer); clearInterval(dotsTimer); };
     }, []);
 
-    const statusLabel = STATUS_LABELS[status] ?? "PROCESSING";
+    const statusLabel = STATUS_LABELS[status] ?? "PROCESSING_DATA";
     const dotsStr = ".".repeat(dots);
 
     return (
-        <div className="min-h-screen bg-[#0a0e1a] flex flex-col arcade-grid">
+        <div className="min-h-[100dvh] bg-[#000000] flex flex-col relative overflow-hidden">
+            {/* Background grid */}
+            <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCI+PHBhdGggZD0iTTAgMGg0MHY0MEgweiIgZmlsbD0ibm9uZSIvPjxwYXRoIGQ9Ik0wIDM5LjVoNDBWNDBoLTR6IiBmaWxsPSIjMWExZjJmIiBvcGFjaXR5PSIwLjUiLz48cGF0aCBkPSJNMzkuNSAwVjQwaC41VjB6IiBmaWxsPSIjMWExZjJmIiBvcGFjaXR5PSIwLjUiLz48L3N2Zz4=')] [mask-image:linear-gradient(to_bottom,transparent,black_10%,black_90%,transparent)] -z-0"></div>
+            
             <Navbar />
-            {/* Back button */}
-            <div className="fixed top-14 left-6 z-20">
-                <button
-                    onClick={onBack}
-                    className="flex items-center gap-2 text-[#a7aabb] hover:text-[#f3ffca] text-xs uppercase tracking-widest font-label transition-colors group"
-                >
-                    <span className="group-hover:-translate-x-1 transition-transform">←</span>
-                    Back
-                </button>
-            </div>
+            
+            <div className="flex-1 flex items-center justify-center px-6 relative z-10">
+                <div className="w-full max-w-3xl border-4 border-[#fc8700] bg-[#0e0e0e] p-12 shadow-[12px_12px_0px_0px_rgba(252,135,0,0.4)] relative">
+                    
+                    {/* Corner accents */}
+                    <div className="absolute -top-1 -left-1 w-4 h-4 bg-[#fc8700]"></div>
+                    <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-[#fc8700]"></div>
 
-            {/* Center content */}
-            <div className="flex-1 flex items-center justify-center px-8">
-                <div className="w-full max-w-2xl">
-
-                    {/* Status label */}
-                    <p className="font-arcade text-[#fc8700] text-2xl uppercase tracking-[0.3em] mb-2 text-center">
-                        {statusLabel}{dotsStr}
-                    </p>
-
-                    {/* Scan line animation */}
-                    <div className="relative h-1 bg-[#1a1f2f] mb-12 overflow-hidden">
-                        <div
-                            className="absolute top-0 left-0 h-full bg-[#cafd00]"
-                            style={{ animation: "scanLine 2s ease-in-out infinite" }}
-                        />
-                    </div>
-
-                    {/* Funny message */}
-                    <div className="relative h-20 flex items-center justify-center mb-12">
-                        <p
-                            className={`font-arcade text-3xl text-[#f3ffca] text-center uppercase leading-tight transition-all duration-400 ${fading ? "opacity-0 translate-y-2" : "opacity-100 translate-y-0"}`}
-                        >
-                            {FUNNY_MESSAGES[msgIdx]}
+                    <div className="text-center space-y-12">
+                        <p className="font-arcade text-[#fc8700] text-3xl uppercase tracking-widest drop-shadow-[0_0_10px_rgba(252,135,0,0.8)]">
+                            {statusLabel}{dotsStr}
                         </p>
-                    </div>
 
-                    {/* Pixel dots loader */}
-                    <div className="flex items-center justify-center gap-3 mb-12">
-                        {[0, 1, 2, 3, 4, 5, 6].map(i => (
-                            <div
-                                key={i}
-                                className="w-2 h-2 bg-[#cafd00]"
-                                style={{
-                                    animation: `pixelBlink 1.4s ease-in-out ${i * 0.2}s infinite`,
-                                    opacity: 0.3,
-                                }}
-                            />
-                        ))}
-                    </div>
+                        <div className="h-1 w-full bg-[#1a1f2f] relative overflow-hidden">
+                            <div className="absolute top-0 left-0 h-full bg-[#fc8700] w-1/3 shadow-[0_0_20px_#fc8700]" style={{ animation: "scanLine 1.5s linear infinite" }}></div>
+                        </div>
 
-                    {/* Cancel button */}
-                    <div className="flex justify-center">
-                        <button
-                            onClick={onCancel}
-                            disabled={isCancelling}
-                            className="px-6 py-2 bg-[#ff7351]/10 border border-[#ff7351]/40 text-[#ff7351] font-arcade uppercase tracking-widest text-sm hover:bg-[#ff7351]/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-[3px_3px_0px_0px_rgba(255,115,81,0.3)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
-                        >
-                            {isCancelling ? "ABORTING..." : "ABORT_MISSION"}
-                        </button>
+                        <div className="h-16 flex items-center justify-center">
+                            <p className={`font-arcade text-3xl text-white uppercase leading-tight transition-all duration-400 ${fading ? "opacity-0 -translate-y-2 scale-95" : "opacity-100 translate-y-0 scale-100"}`}>
+                                {FUNNY_MESSAGES[msgIdx]}
+                            </p>
+                        </div>
+
+                        <div className="flex justify-center pt-8 border-t-2 border-dashed border-[#1a1f2f]">
+                            <button
+                                onClick={onCancel}
+                                disabled={isCancelling}
+                                className="px-8 py-4 bg-transparent border-2 border-[#ff7351] text-[#ff7351] font-arcade text-xl uppercase tracking-widest hover:bg-[#ff7351] hover:text-black hover:shadow-[0_0_20px_#ff7351] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                            >
+                                {isCancelling ? "EJECTING..." : "EJECT_CARTRIDGE"}
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            {/* Inline keyframes for loading animations */}
             <style>{`
                 @keyframes scanLine {
-                    0% { width: 0%; left: 0; }
-                    50% { width: 100%; left: 0; }
-                    100% { width: 0%; left: 100%; }
-                }
-                @keyframes pixelBlink {
-                    0%, 80%, 100% { opacity: 0.3; transform: scale(1); }
-                    40% { opacity: 1; transform: scale(1.4); background-color: #f3ffca; }
+                    0% { left: -33%; }
+                    100% { left: 100%; }
                 }
             `}</style>
         </div>
@@ -911,17 +790,18 @@ function LoadingState({ onBack, onCancel, isCancelling, status }: {
 
 function CancelledState({ backHref }: { backHref: string }) {
     return (
-        <div className="min-h-screen bg-[#0a0e1a] flex items-center justify-center px-6 arcade-grid">
+        <div className="min-h-screen bg-[#000000] flex items-center justify-center px-6 relative">
+            <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCI+PHBhdGggZD0iTTAgMGg0MHY0MEgweiIgZmlsbD0ibm9uZSIvPjxwYXRoIGQ9Ik0wIDM5LjVoNDBWNDBoLTR6IiBmaWxsPSIjMWExZjJmIiBvcGFjaXR5PSIwLjUiLz48cGF0aCBkPSJNMzkuNSAwVjQwaC41VjB6IiBmaWxsPSIjMWExZjJmIiBvcGFjaXR5PSIwLjUiLz48L3N2Zz4=')] [mask-image:linear-gradient(to_bottom,transparent,black_10%,black_90%,transparent)] -z-0"></div>
             <Navbar />
-            <div className="text-center max-w-md pt-12">
-                <p className="font-arcade text-8xl text-[#ff7351] mb-4">✗</p>
-                <h2 className="font-arcade text-4xl text-[#f3ffca] uppercase tracking-widest mb-3">MISSION_ABORTED</h2>
-                <p className="text-[#a7aabb] font-body text-sm mb-8">This run was cancelled before completion.</p>
+            <div className="text-center max-w-xl p-12 bg-[#0e0e0e] border-4 border-[#ff7351] shadow-[12px_12px_0px_0px_rgba(255,115,81,0.4)] relative z-10">
+                <p className="font-arcade text-8xl text-[#ff7351] mb-6 drop-shadow-[0_0_20px_rgba(255,115,81,0.5)]">X</p>
+                <h2 className="font-arcade text-5xl text-white uppercase tracking-widest mb-4">GAME_OVER</h2>
+                <p className="text-[#a7aabb] font-label text-sm uppercase tracking-widest mb-10">Mission manually aborted.</p>
                 <a
                     href={backHref}
-                    className="inline-flex items-center gap-2 px-6 py-3 bg-[#f3ffca] text-[#0a0e1a] font-arcade uppercase tracking-widest text-sm shadow-[4px_4px_0px_0px_rgba(202,253,0,0.4)] hover:shadow-[2px_2px_0px_0px_rgba(202,253,0,0.4)] hover:translate-x-[2px] hover:translate-y-[2px] transition-all"
+                    className="inline-flex items-center gap-3 px-8 py-4 bg-white text-black font-arcade text-xl uppercase tracking-widest hover:bg-[#ff7351] transition-colors"
                 >
-                    ← Return to Base
+                    [ RETURN TO BASE ]
                 </a>
             </div>
         </div>
@@ -930,12 +810,13 @@ function CancelledState({ backHref }: { backHref: string }) {
 
 function NotFoundState() {
     return (
-        <div className="min-h-screen bg-[#0a0e1a] flex items-center justify-center">
+        <div className="min-h-screen bg-[#000000] flex items-center justify-center px-6 relative">
+            <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCI+PHBhdGggZD0iTTAgMGg0MHY0MEgweiIgZmlsbD0ibm9uZSIvPjxwYXRoIGQ9Ik0wIDM5LjVoNDBWNDBoLTR6IiBmaWxsPSIjMWExZjJmIiBvcGFjaXR5PSIwLjUiLz48cGF0aCBkPSJNMzkuNSAwVjQwaC41VjB6IiBmaWxsPSIjMWExZjJmIiBvcGFjaXR5PSIwLjUiLz48L3N2Zz4=')] -z-0"></div>
             <Navbar />
-            <div className="text-center pt-12">
-                <p className="font-arcade text-6xl text-[#717584] mb-4">404</p>
-                <p className="font-arcade text-2xl text-[#a7aabb] uppercase">MISSION_NOT_FOUND</p>
-                <p className="text-[#717584] text-sm mt-2 font-body">This test job does not exist or has been deleted.</p>
+            <div className="text-center z-10 p-12 bg-[#0e0e0e] border-[1px] border-[#1a1f2f]">
+                <p className="font-arcade text-9xl text-[#444756] mb-4 mix-blend-screen">404</p>
+                <p className="font-arcade text-3xl text-white uppercase mb-2">FILE_NOT_FOUND</p>
+                <p className="text-[#717584] text-xs font-label uppercase tracking-widest">This record has been wiped from the database.</p>
             </div>
         </div>
     );
