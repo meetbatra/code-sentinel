@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import Prism from "prismjs";
-import "prismjs/themes/prism-tomorrow.css";
 import "prismjs/components/prism-javascript";
 import "prismjs/components/prism-typescript";
 import "prismjs/components/prism-jsx";
@@ -45,10 +44,10 @@ export function CodeBlock({
     };
 
     return (
-        <div className={`relative group ${className}`}>
+        <div className={`relative group p-4 ${className}`}>
             {/* Language badge and action buttons */}
-            <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-mono text-muted-foreground uppercase tracking-wide">
+            <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-mono text-[#a7aabb] uppercase tracking-wide">
                     {language}
                 </span>
                 <div className="flex items-center gap-1">
@@ -81,8 +80,8 @@ export function CodeBlock({
                 </div>
             </div>
 
-            <pre className={`${showLineNumbers ? "line-numbers" : ""} bg-[#2d2d2d]! m-0! p-4 rounded-lg overflow-x-auto shadow-inner border border-border`}>
-                <code ref={codeRef} className={`language-${language} text-sm! leading-relaxed`}>
+            <pre className={`${showLineNumbers ? "line-numbers" : ""} !bg-[#0e0e0e] !m-0 p-5 rounded-lg overflow-x-auto shadow-inner border border-[#1a1f2f]`}>
+                <code ref={codeRef} className={`language-${language} !text-sm leading-relaxed`}>
                     {code}
                 </code>
             </pre>

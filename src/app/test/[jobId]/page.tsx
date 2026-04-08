@@ -4,11 +4,12 @@ import { useTRPC } from "@/trpc/client";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { CodeBlock } from "@/components/code-block";
-import { CheckCircle2, XCircle, AlertCircle, ChevronDown, FileEdit, Sparkles, ChevronRight, Server, TerminalSquare } from "lucide-react";
+import { CheckCircle2, XCircle, AlertCircle, ChevronDown, FileEdit, Sparkles, ChevronRight, Server, TerminalSquare, Maximize2, MousePointer2, Type, Navigation, Eye, Loader2, FileCode, Globe } from "lucide-react";
 import { Navbar } from "@/components/navbar";
+import { Button } from "@/components/ui/button";
 
 // ─── Type guards ────────────────────────────────────────────────────────────
 
@@ -25,6 +26,34 @@ function parseSuggestedFixes(fixes: unknown): SuggestedFix[] {
 function parseSteps(value: unknown): string[] {
     if (!Array.isArray(value)) return [];
     return value.filter((s): s is string => typeof s === "string");
+}
+
+// Helper to determine icon for a step based on its content
+function getStepIcon(step: string) {
+    const lowerStep = step.toLowerCase();
+    if (lowerStep.includes('navigate') || lowerStep.includes('goto') || lowerStep.includes('visit') || lowerStep.includes('open')) {
+        return { Icon: Navigation, color: '#fc8700' };
+    }
+    if (lowerStep.includes('click') || lowerStep.includes('press') || lowerStep.includes('select')) {
+        return { Icon: MousePointer2, color: '#cafd00' };
+    }
+    if (lowerStep.includes('type') || lowerStep.includes('enter') || lowerStep.includes('input') || lowerStep.includes('fill')) {
+        return { Icon: Type, color: '#b024ff' };
+    }
+    if (lowerStep.includes('wait') || lowerStep.includes('loading') || lowerStep.includes('expect')) {
+        return { Icon: Loader2, color: '#00d4ff' };
+    }
+    if (lowerStep.includes('verify') || lowerStep.includes('check') || lowerStep.includes('assert') || lowerStep.includes('see')) {
+        return { Icon: Eye, color: '#ff7351' };
+    }
+    if (lowerStep.includes('api') || lowerStep.includes('request') || lowerStep.includes('fetch')) {
+        return { Icon: Server, color: '#cafd00' };
+    }
+    if (lowerStep.includes('code') || lowerStep.includes('script')) {
+        return { Icon: FileCode, color: '#b024ff' };
+    }
+    // Default
+    return { Icon: Globe, color: '#a7aabb' };
 }
 
 function parseNetworkAssertions(value: unknown): NetworkAssertion[] {
@@ -92,6 +121,159 @@ interface ServerInfo {
     port?: number; sandboxUrl?: string; startCommand?: string; isRunning?: boolean;
     backendPort?: number; backendUrl?: string; backendStartCommand?: string; backendRunning?: boolean;
     frontendPort?: number; frontendUrl?: string; frontendStartCommand?: string; frontendRunning?: boolean;
+}
+
+// ─── Terminal Summary Component ────────────────────────────────────────────
+
+function TerminalSummaryDisplay({ summary }: { summary: string }) {
+    const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [isTruncated, setIsTruncated] = useState(false);
+    const summaryRef = useRef<HTMLParagraphElement>(null);
+
+    useEffect(() => {
+        if (summaryRef.current) {
+            // Check if content exceeds 6 lines (approx 6 * 1.5rem line-height = 9rem)
+            const lineHeight = parseFloat(getComputedStyle(summaryRef.current).lineHeight);
+            const maxHeight = lineHeight * 6;
+            setIsTruncated(summaryRef.current.scrollHeight > maxHeight);
+        }
+    }, [summary]);
+
+    // Disable body scroll when dialog is open
+    useEffect(() => {
+        if (isDialogOpen) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = '';
+        }
+        
+        return () => {
+            document.body.style.overflow = '';
+        };
+    }, [isDialogOpen]);
+
+    const cleanedSummary = summary
+        .replace(/<task_summary>/gi, "")
+        .replace(/<\/task_summary>/gi, "")
+        .replace(/\\n/g, " ")
+        .trim();
+
+    return (
+        <>
+            <div className="relative">
+                <p
+                    ref={summaryRef}
+                    className={`text-[#a7aabb] text-sm leading-relaxed font-body ${
+                        isTruncated ? "line-clamp-6" : ""
+                    }`}
+                >
+                    {cleanedSummary}
+                </p>
+                {isTruncated && (
+                    <div className="mt-3 flex items-center gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setIsDialogOpen(true)}
+                            className="bg-[#1a1f2f] border-[#fc8700] text-[#fc8700] hover:bg-[#fc8700] hover:text-[#141928] transition-all duration-200"
+                        >
+                            <Maximize2 className="w-3.5 h-3.5 mr-2" />
+                            Show More
+                        </Button>
+                    </div>
+                )}
+            </div>
+
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <DialogContent className="max-w-4xl max-h-[80vh] bg-[#141928] border-2 border-[#fc8700] text-[#e2e4f6] overflow-hidden flex flex-col">
+                    <DialogTitle className="font-arcade text-2xl text-[#e2e4f6] uppercase tracking-wider flex items-center gap-3 border-b border-[#1a1f2f] pb-4 flex-shrink-0">
+                        <TerminalSquare className="w-6 h-6 text-[#fc8700]" />
+                        Complete Terminal Summary
+                    </DialogTitle>
+                    <div className="overflow-y-auto pr-4 custom-scrollbar flex-1 min-h-0">
+                        <p className="text-[#a7aabb] text-sm leading-relaxed font-body whitespace-pre-wrap">
+                            {cleanedSummary}
+                        </p>
+                    </div>
+                </DialogContent>
+            </Dialog>
+        </>
+    );
+}
+
+// ─── Mission Brief Component ────────────────────────────────────────────
+
+function MissionBriefDisplay({ bugDescription }: { bugDescription: string }) {
+    const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [isTruncated, setIsTruncated] = useState(false);
+    const briefRef = useRef<HTMLParagraphElement>(null);
+
+    useEffect(() => {
+        if (briefRef.current) {
+            // Check if content exceeds 4 lines
+            const lineHeight = parseFloat(getComputedStyle(briefRef.current).lineHeight);
+            const maxHeight = lineHeight * 4;
+            setIsTruncated(briefRef.current.scrollHeight > maxHeight);
+        }
+    }, [bugDescription]);
+
+    // Disable body scroll when dialog is open
+    useEffect(() => {
+        if (isDialogOpen) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = '';
+        }
+        
+        return () => {
+            document.body.style.overflow = '';
+        };
+    }, [isDialogOpen]);
+
+    return (
+        <>
+            <div className="mt-4 pt-4 border-t border-[#1a1f2f]">
+                <span className="text-[#717584] text-[10px] uppercase tracking-widest font-mono block mb-2">
+                    Original Mission Brief:
+                </span>
+                <p
+                    ref={briefRef}
+                    className={`text-[#e2e4f6] text-xs font-mono ${
+                        isTruncated ? "line-clamp-4" : ""
+                    }`}
+                >
+                    {bugDescription}
+                </p>
+                {isTruncated && (
+                    <div className="mt-2 flex items-center gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setIsDialogOpen(true)}
+                            className="bg-[#1a1f2f] border-[#fc8700] text-[#fc8700] hover:bg-[#fc8700] hover:text-[#141928] transition-all duration-200 text-[10px]"
+                        >
+                            <Maximize2 className="w-3 h-3 mr-1.5" />
+                            Show More
+                        </Button>
+                    </div>
+                )}
+            </div>
+
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <DialogContent className="max-w-4xl max-h-[80vh] bg-[#141928] border-2 border-[#fc8700] text-[#e2e4f6] overflow-hidden flex flex-col">
+                    <DialogTitle className="font-arcade text-2xl text-[#e2e4f6] uppercase tracking-wider flex items-center gap-3 border-b border-[#1a1f2f] pb-4 flex-shrink-0">
+                        <TerminalSquare className="w-6 h-6 text-[#fc8700]" />
+                        Original Mission Brief
+                    </DialogTitle>
+                    <div className="overflow-y-auto pr-4 custom-scrollbar flex-1 min-h-0">
+                        <p className="text-[#e2e4f6] text-sm font-mono whitespace-pre-wrap leading-relaxed">
+                            {bugDescription}
+                        </p>
+                    </div>
+                </DialogContent>
+            </Dialog>
+        </>
+    );
 }
 
 // ─── Main Page ──────────────────────────────────────────────────────────────
@@ -199,17 +381,12 @@ export default function TestResultsPage() {
                                 Terminal Summary
                             </h2>
                             {job.summary ? (
-                                <p className="text-[#a7aabb] text-sm leading-relaxed font-body">
-                                    {job.summary.replace(/<task_summary>/gi, "").replace(/<\/task_summary>/gi, "").replace(/\\n/g, " ").trim()}
-                                </p>
+                                <TerminalSummaryDisplay summary={job.summary} />
                             ) : (
                                 <p className="text-[#a7aabb] text-xs leading-relaxed font-body italic">No summary generated.</p>
                             )}
                             {job.bugDescription && (
-                                <div className="mt-4 pt-4 border-t border-[#1a1f2f]">
-                                    <span className="text-[#717584] text-[10px] uppercase tracking-widest font-mono block mb-2">Original Mission Brief:</span>
-                                    <p className="text-[#e2e4f6] text-xs font-mono">{job.bugDescription}</p>
-                                </div>
+                                <MissionBriefDisplay bugDescription={job.bugDescription} />
                             )}
                         </div>
 
@@ -396,7 +573,7 @@ function BugCard({ bug, index }: { bug: Bug; index: number }) {
                 <div className="border-t border-[#1a1f2f]">
                     <button
                         onClick={() => setIsExpanded(!isExpanded)}
-                        className="w-full flex items-center justify-between px-6 py-4 hover:bg-[#fc8700]/10 transition-colors"
+                        className="w-full flex items-center justify-between px-6 py-4 hover:bg-[#fc8700]/10 transition-colors cursor-pointer"
                     >
                         <div className="flex items-center gap-3">
                             <Sparkles className="w-5 h-5 text-[#fc8700]" />
@@ -426,7 +603,7 @@ function BugCard({ bug, index }: { bug: Bug; index: number }) {
                                         </code>
                                     </div>
 
-                                    <div className={`grid gap-4 ${fix.existingSnippet ? "xl:grid-cols-2" : "grid-cols-1"}`}>
+                                    <div className="space-y-4">
                                         {fix.existingSnippet && (
                                             <div>
                                                 <div className="text-xs text-[#ff7351] font-label uppercase tracking-widest mb-2 bg-[#ff7351]/10 px-3 py-1 border border-[#ff7351]/20 inline-block">Current Bad Logic</div>
@@ -522,7 +699,7 @@ function TestsPanel({ tests }: { tests: Test[] }) {
             {filteredBackend.length > 0 && (
                 <div className="bg-[#141928] border border-[#1a1f2f] mt-8">
                     <div className="px-5 py-3 border-b border-[#1a1f2f] bg-[#0e0e0e] flex items-center justify-between">
-                        <span className="font-arcade text-xs text-[#b024ff] uppercase tracking-wider">API Validation</span>
+                        <span className="font-arcade !text-base text-[#b024ff] uppercase tracking-wider">API Validation</span>
                         <span className="text-[#a7aabb] font-label text-[10px] uppercase tracking-widest">{filteredBackend.length} scripts</span>
                     </div>
                     <div className="divide-y divide-[#1a1f2f]/50">
@@ -537,88 +714,254 @@ function TestsPanel({ tests }: { tests: Test[] }) {
 }
 
 function BrowserEdgeCaseRow({ test }: { test: Test }) {
+    const [isExpanded, setIsExpanded] = useState(false);
     const steps = parseSteps(test.steps);
     const networkAssertions = parseNetworkAssertions(test.networkAssertions);
     const uiAssertions = parseUiAssertions(test.uiAssertions);
 
     const statusConfig = {
-        PASS: { bg: "bg-[#cafd00]/10", text: "text-[#cafd00]", border: "border-l-[#cafd00]" },
-        FAIL: { bg: "bg-[#ff7351]/10", text: "text-[#ff7351]", border: "border-l-[#ff7351]" },
-        ERROR: { bg: "bg-[#fc8700]/10", text: "text-[#fc8700]", border: "border-l-[#fc8700]" },
+        PASS: { 
+            bg: "bg-[#cafd00]/10", 
+            text: "text-[#cafd00]", 
+            border: "border-[#cafd00]",
+            icon: <CheckCircle2 className="w-5 h-5" />
+        },
+        FAIL: { 
+            bg: "bg-[#ff7351]/10", 
+            text: "text-[#ff7351]", 
+            border: "border-[#ff7351]",
+            icon: <XCircle className="w-5 h-5" />
+        },
+        ERROR: { 
+            bg: "bg-[#fc8700]/10", 
+            text: "text-[#fc8700]", 
+            border: "border-[#fc8700]",
+            icon: <AlertCircle className="w-5 h-5" />
+        },
     } as const;
     const c = statusConfig[test.status] ?? statusConfig.FAIL;
 
     return (
-        <div className={`p-4 border-l-2 ${c.border} bg-[#000000]/30 hover:bg-[#1a1f2f] transition-all flex flex-col md:flex-row gap-4 items-start justify-between`}>
-            <div className="flex-1 min-w-0 space-y-3">
-                <div className="flex items-start gap-3">
-                    <div className={`mt-0.5 px-2 py-0.5 font-arcade text-[10px] uppercase shrink-0 ${c.bg} ${c.text}`}>
-                        {test.status}
-                    </div>
-                    <div>
-                        <p className="text-[#e2e4f6] text-sm font-label truncate mt-0.5 leading-none">{test.testName}</p>
-                        <div className="flex gap-3 text-[9px] font-mono mt-1 text-[#717584] uppercase tracking-widest">
-                            {test.executedAt && <span><span className="text-[#444756]">EXEC_</span> {new Date(test.executedAt).toLocaleTimeString()}</span>}
-                            {test.exitCode !== null && <span><span className="text-[#444756]">EXIT_</span> {test.exitCode}</span>}
-                        </div>
-                    </div>
+        <div className={`bg-[#141928] border-l-4 ${c.border} rounded-r-lg overflow-hidden hover:shadow-[0_0_20px_rgba(252,135,0,0.1)] transition-all duration-300`}>
+            {/* Header */}
+            <div className="p-5 flex items-start gap-4">
+                {/* Status Icon */}
+                <div className={`${c.bg} ${c.text} p-3 rounded-lg`}>
+                    {c.icon}
                 </div>
 
-                {(networkAssertions.length > 0 || uiAssertions.length > 0 || steps.length > 0 || test.output) && (
-                    <div className="pl-[3.5rem] space-y-1">
-                        {steps.length > 0 && (
-                            <p className="text-[#a7aabb] text-[10px] flex items-center gap-1 flex-wrap mb-2">
-                                {steps.map((s, i) => (
-                                    <span key={i} className="flex items-center gap-1">
-                                        {i > 0 && <ChevronRight className="w-2.5 h-2.5 text-[#fc8700]" />}
-                                        <span className="font-mono text-[#a7aabb] bg-[#1a1f2f] px-1 py-0.5 text-[9px]">{s}</span>
-                                    </span>
+                {/* Test Info */}
+                <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-4 mb-2">
+                        <h4 className="text-[#e2e4f6] text-base font-semibold leading-tight">{test.testName}</h4>
+                        <div className={`px-3 py-1 rounded-full font-arcade text-xs uppercase ${c.bg} ${c.text} whitespace-nowrap`}>
+                            {test.status}
+                        </div>
+                    </div>
+
+                    {/* Metadata */}
+                    <div className="flex flex-wrap gap-4 text-xs text-[#717584] font-mono">
+                        {test.executedAt && (
+                            <span className="flex items-center gap-1.5">
+                                <span className="text-[#fc8700]">⏱</span>
+                                {new Date(test.executedAt).toLocaleTimeString()}
+                            </span>
+                        )}
+                        {test.exitCode !== null && (
+                            <span className="flex items-center gap-1.5">
+                                <span className="text-[#fc8700]">EXIT</span>
+                                {test.exitCode}
+                            </span>
+                        )}
+                        {test.featureName && (
+                            <span className="flex items-center gap-1.5">
+                                <span className="text-[#fc8700]">FEATURE</span>
+                                {test.featureName}
+                            </span>
+                        )}
+                    </div>
+
+                    {/* Network Assertions - Show by default */}
+                    {networkAssertions.length > 0 && (
+                        <div className="mt-4 p-4 bg-[#0e0e0e] rounded-lg border border-[#1a1f2f]">
+                            <div className="text-[10px] uppercase tracking-widest text-[#717584] font-mono mb-3 flex items-center gap-2">
+                                <span className="w-2 h-2 bg-[#fc8700] rounded-full"></span>
+                                Network Assertions
+                            </div>
+                            <div className="space-y-2">
+                                {networkAssertions.map((assertion, i) => (
+                                    <div key={i} className={`p-3 rounded border ${assertion.passed ? 'bg-[#cafd00]/5 border-[#cafd00]/20' : 'bg-[#ff7351]/5 border-[#ff7351]/20'}`}>
+                                        <div className="flex items-start justify-between gap-4 mb-1">
+                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${assertion.passed ? 'bg-[#cafd00] text-black' : 'bg-[#ff7351] text-white'}`}>
+                                                {assertion.method}
+                                            </span>
+                                            <span className={`text-xs font-semibold ${assertion.passed ? 'text-[#cafd00]' : 'text-[#ff7351]'}`}>
+                                                {assertion.actualStatus}
+                                            </span>
+                                        </div>
+                                        <div className="text-xs text-[#a7aabb] font-mono break-all">{assertion.url}</div>
+                                        <div className="text-[10px] text-[#717584] mt-1">
+                                            Expected: <span className={assertion.passed ? 'text-[#cafd00]' : 'text-[#ff7351]'}>{assertion.expectedStatus}</span>
+                                            {!assertion.passed && <span className="ml-2 text-[#ff7351]">❌ FAILED</span>}
+                                        </div>
+                                    </div>
                                 ))}
-                            </p>
-                        )}
-                        {networkAssertions.map((a, i) => (
-                            <p key={`net-${i}`} className="text-[10px] font-mono text-[#a7aabb]">
-                                <span className="text-[#717584]">NET_ [</span>{a.method.toUpperCase()} <span className="text-white truncate max-w-[200px] sm:max-w-xs md:max-w-md inline-block align-bottom">{a.url}</span><span className="text-[#717584]">] : </span>
-                                <span className={a.passed ? "text-[#cafd00]" : "text-[#ff7351]"}>
-                                    {a.actualStatus} {a.passed ? "SUCCESS" : "CRITICAL"}
-                                </span>
-                            </p>
-                        ))}
-                        {uiAssertions.map((a, i) => (
-                            <p key={`ui-${i}`} className="text-[10px] font-mono text-[#a7aabb] mt-1">
-                                <span className="text-[#717584]">UI_ [</span>{a.selector}<span className="text-[#717584]">] : </span>
-                                <span className={a.passed ? "text-[#cafd00]" : "text-[#ff7351]"}>
-                                    {a.passed ? "VALID" : `EXPECTED "${a.expected}" GOT "${a.actual}"`}
-                                </span>
-                            </p>
-                        ))}
-                        {test.output && (!networkAssertions.length && !uiAssertions.length) && (
-                            <p className="text-[10px] font-mono text-[#717584] max-h-32 overflow-y-auto mt-2 border-l-2 border-[#1a1f2f] pl-2">{test.output}</p>
-                        )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* UI Assertions - Show by default */}
+                    {uiAssertions.length > 0 && (
+                        <div className="mt-4 p-4 bg-[#0e0e0e] rounded-lg border border-[#1a1f2f]">
+                            <div className="text-[10px] uppercase tracking-widest text-[#717584] font-mono mb-3 flex items-center gap-2">
+                                <span className="w-2 h-2 bg-[#fc8700] rounded-full"></span>
+                                UI Assertions
+                            </div>
+                            <div className="space-y-2">
+                                {uiAssertions.map((assertion, i) => (
+                                    <div key={i} className={`p-3 rounded border ${assertion.passed ? 'bg-[#cafd00]/5 border-[#cafd00]/20' : 'bg-[#ff7351]/5 border-[#ff7351]/20'}`}>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <code className="text-xs text-[#fc8700] bg-[#1a1f2f] px-2 py-1 rounded font-mono">
+                                                {assertion.selector}
+                                            </code>
+                                            <span className={`text-xs font-bold ${assertion.passed ? 'text-[#cafd00]' : 'text-[#ff7351]'}`}>
+                                                {assertion.passed ? '✓ PASS' : '✗ FAIL'}
+                                            </span>
+                                        </div>
+                                        <div className="text-xs space-y-1">
+                                            <div className="text-[#717584]">
+                                                Expected: <span className="text-[#a7aabb]">{assertion.expected}</span>
+                                            </div>
+                                            <div className="text-[#717584]">
+                                                Actual: <span className={assertion.passed ? 'text-[#cafd00]' : 'text-[#ff7351]'}>{assertion.actual}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Console Output - Show by default */}
+                    {test.output && (
+                        <div className="mt-4 p-4 bg-[#0e0e0e] rounded-lg border border-[#1a1f2f]">
+                            <div className="text-[10px] uppercase tracking-widest text-[#717584] font-mono mb-3 flex items-center gap-2">
+                                <span className="w-2 h-2 bg-[#fc8700] rounded-full"></span>
+                                Console Output
+                            </div>
+                            <pre className="text-xs text-[#a7aabb] font-mono whitespace-pre-wrap max-h-48 overflow-y-auto custom-scrollbar">
+                                {test.output}
+                            </pre>
+                        </div>
+                    )}
+
+                    {/* Expandable Test Execution Flow */}
+                    {steps.length > 0 && (
+                        <div className="mt-4">
+                            <button
+                                onClick={() => setIsExpanded(!isExpanded)}
+                                className="text-xs text-[#fc8700] hover:text-[#ff9b1a] font-semibold uppercase tracking-wider flex items-center gap-2 transition-colors cursor-pointer"
+                            >
+                                <ChevronDown className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                                {isExpanded ? 'Hide Test Flow' : 'Show Test Flow'}
+                            </button>
+
+                            {isExpanded && (
+                                <div className="mt-4 animate-in slide-in-from-top-2 duration-300">
+                                    {/* Steps - Visual Timeline */}
+                                    <div className="p-4 bg-[#0e0e0e] rounded-lg border border-[#1a1f2f]">
+                                        <div className="text-[10px] uppercase tracking-widest text-[#717584] font-mono mb-4 flex items-center gap-2">
+                                            <span className="w-2 h-2 bg-[#fc8700] rounded-full"></span>
+                                            Test Execution Flow
+                                        </div>
+                                        <div className="space-y-3">
+                                            {steps.map((step, i) => {
+                                                const { Icon, color } = getStepIcon(step);
+                                                const isLast = i === steps.length - 1;
+                                                
+                                                return (
+                                                    <div key={i} className="flex gap-3 group">
+                                                        {/* Timeline track */}
+                                                        <div className="flex flex-col items-center">
+                                                            {/* Icon with colored background */}
+                                                            <div 
+                                                                className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-all group-hover:scale-110 group-hover:shadow-lg"
+                                                                style={{ 
+                                                                    backgroundColor: `${color}15`,
+                                                                    border: `1.5px solid ${color}40`
+                                                                }}
+                                                            >
+                                                                <Icon 
+                                                                    className="w-4 h-4" 
+                                                                    style={{ color }}
+                                                                />
+                                                            </div>
+                                                            
+                                                            {/* Connecting line */}
+                                                            {!isLast && (
+                                                                <div 
+                                                                    className="w-0.5 h-full min-h-[16px] mt-1"
+                                                                    style={{ backgroundColor: `${color}30` }}
+                                                                />
+                                                            )}
+                                                        </div>
+                                                        
+                                                        {/* Step content */}
+                                                        <div className="flex-1 pb-2">
+                                                            <div className="flex items-start gap-2 mb-1">
+                                                                <span 
+                                                                    className="px-1.5 py-0.5 rounded text-[10px] font-bold font-mono shrink-0"
+                                                                    style={{ 
+                                                                        backgroundColor: `${color}20`,
+                                                                        color: color
+                                                                    }}
+                                                                >
+                                                                    {i + 1}
+                                                                </span>
+                                                                <p className="text-sm text-[#e2e4f6] leading-relaxed group-hover:text-white transition-colors">
+                                                                    {step}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+
+                {/* Screenshot */}
+                {test.screenshotUrl && (
+                    <div className="shrink-0">
+                        <Dialog>
+                            <DialogTrigger asChild>
+                                <button className="w-40 h-24 border-2 border-[#444756] hover:border-[#fc8700] overflow-hidden transition-all bg-[#0e0e0e] rounded-lg group relative">
+                                    <div className="absolute inset-0 flex items-center justify-center bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                                        <div className="text-center">
+                                            <Maximize2 className="w-5 h-5 text-[#fc8700] mx-auto mb-1" />
+                                            <span className="font-arcade text-[9px] text-[#fc8700] uppercase">View Full</span>
+                                        </div>
+                                    </div>
+                                    <img src={test.screenshotUrl} alt={test.testName} className="w-full h-full object-cover" />
+                                </button>
+                            </DialogTrigger>
+                            <DialogContent className="!w-[90vw] !max-w-[1600px] h-[90vh] p-6 !bg-[#0e0e0e] border-[3px] border-[#fc8700] overflow-hidden shadow-[0_0_50px_rgba(252,135,0,0.3)] flex flex-col">
+                                <DialogTitle className="font-arcade text-xl text-[#fc8700] uppercase tracking-widest flex items-center gap-3 flex-shrink-0">
+                                    <TerminalSquare className="w-5 h-5" />
+                                    {test.testName}
+                                </DialogTitle>
+                                <div className="flex-1 min-h-0 border-2 border-[#444756] mt-4 rounded-lg overflow-hidden bg-black">
+                                    <img src={test.screenshotUrl} alt="full screenshot" className="w-full h-full object-contain" />
+                                </div>
+                            </DialogContent>
+                        </Dialog>
                     </div>
                 )}
             </div>
-
-            {test.screenshotUrl && (
-                <div className="shrink-0 w-32 h-20 md:mt-0 mt-2">
-                    <Dialog>
-                        <DialogTrigger asChild>
-                            <button className="w-full h-full border border-[#444756] hover:border-[#fc8700] hover:shadow-[0_0_10px_#fc8700] overflow-hidden transition-all bg-[#0e0e0e] rounded-sm group relative">
-                                <div className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                                    <span className="font-arcade text-[8px] text-[#fc8700] uppercase">View</span>
-                                </div>
-                                <img src={test.screenshotUrl} alt={test.testName} className="w-full h-full object-cover opacity-80 group-hover:opacity-100" />
-                            </button>
-                        </DialogTrigger>
-                        <DialogContent className="!w-[80vw] !max-w-[1400px] h-[85vh] p-4 !bg-[#0e0e0e] border-[3px] border-[#fc8700] overflow-hidden shadow-[0_0_50px_rgba(252,135,0,0.2)]">
-                            <DialogTitle className="font-arcade text-[#fc8700] uppercase tracking-widest">{test.testName}</DialogTitle>
-                            <div className="w-full h-full border border-[#444756] mt-4">
-                                <img src={test.screenshotUrl} alt="full screenshot" className="w-full h-full object-contain" />
-                            </div>
-                        </DialogContent>
-                    </Dialog>
-                </div>
-            )}
         </div>
     );
 }
@@ -647,19 +990,19 @@ function TestCard({ test }: { test: Test }) {
         <div className={`border-l-2 ${c.border} bg-[#000000]/30`}>
             <button
                 onClick={() => setIsExpanded(!isExpanded)}
-                className="w-full flex items-center justify-between px-4 py-3 hover:bg-[#1a1f2f] transition-colors text-left"
+                className="w-full flex items-center justify-between px-5 py-4 hover:bg-[#1a1f2f] transition-colors text-left"
             >
                 <div className="flex items-center gap-3 overflow-hidden">
-                    <span className={`px-2 py-0.5 font-arcade text-[10px] uppercase shrink-0 ${c.bg} ${c.text}`}>{test.status}</span>
+                    <span className={`px-3 py-1 font-arcade !text-sm uppercase shrink-0 ${c.bg} ${c.text}`}>{test.status}</span>
                     <div className="flex flex-col gap-1 items-start">
-                        <span className="text-[#e2e4f6] text-xs font-mono truncate leading-none">{test.testFile}</span>
-                        <div className="flex gap-3 text-[9px] font-mono text-[#717584] uppercase tracking-widest leading-none">
+                        <span className="text-[#e2e4f6] !text-sm font-mono truncate leading-none">{test.testFile}</span>
+                        <div className="flex gap-3 text-[10px] font-mono text-[#717584] uppercase tracking-widest leading-none">
                             {test.executedAt && <span><span className="text-[#444756]">EXEC_</span> {new Date(test.executedAt).toLocaleTimeString()}</span>}
                             {test.exitCode !== null && <span><span className="text-[#444756]">EXIT_</span> {test.exitCode}</span>}
                         </div>
                     </div>
                 </div>
-                <ChevronDown className={`w-4 h-4 text-[#717584] transition-transform duration-300 shrink-0 ${isExpanded ? "rotate-180" : ""}`} />
+                <ChevronDown className={`w-7 h-7 text-[#717584] transition-transform duration-300 shrink-0 ${isExpanded ? "rotate-180" : ""}`} />
             </button>
 
             <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isExpanded ? "max-h-[5000px] opacity-100" : "max-h-0 opacity-0"}`}>
@@ -678,7 +1021,7 @@ function TestCard({ test }: { test: Test }) {
                             <span className="text-[10px] text-[#b024ff] font-label uppercase tracking-widest">Source Script_</span>
                             <button
                                 onClick={handleDownload}
-                                className="text-[10px] text-[#b024ff] hover:text-white transition-colors font-arcade uppercase"
+                                className="!text-lg text-[#b024ff] hover:text-white transition-colors font-arcade uppercase px-4 py-2 border border-[#b024ff]/30 rounded hover:bg-[#b024ff]/10"
                             >
                                 [⬇ Download]
                             </button>
