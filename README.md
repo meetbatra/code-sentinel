@@ -1,11 +1,13 @@
 <div align="center">
   <img src="public/logo.svg" alt="Code Sentinel logo" width="92" />
   <h1>Code Sentinel</h1>
-  <p><strong>Autonomous bug validation for Node.js apps with backend + full-stack browser testing.</strong></p>
+  <p><strong>HUNT BUGS BEFORE THEY HUNT YOU.</strong></p>
+  <p>Arcade-style mission control for autonomous backend + full-stack bug validation.</p>
 
   <p>
     <img alt="Next.js" src="https://img.shields.io/badge/Next.js-16-111111?logo=nextdotjs" />
     <img alt="React" src="https://img.shields.io/badge/React-19-149ECA?logo=react&logoColor=white" />
+    <img alt="tRPC" src="https://img.shields.io/badge/tRPC-API%20Layer-398CCB" />
     <img alt="Inngest" src="https://img.shields.io/badge/Inngest-Orchestration-7A3EFF" />
     <img alt="E2B" src="https://img.shields.io/badge/E2B-Sandboxed%20Execution-FF6B35" />
     <img alt="Prisma" src="https://img.shields.io/badge/Prisma-PostgreSQL-2D3748?logo=prisma" />
@@ -13,81 +15,18 @@
   </p>
 
   <p>
-    <a href="#why-code-sentinel">Why</a> •
-    <a href="#what-happens-during-a-run">How It Works</a> •
-    <a href="#product-surfaces">Product Surfaces</a> •
     <a href="#quick-start">Quick Start</a> •
-    <a href="#environment-variables">Environment</a>
+    <a href="#mission-features">Mission Features</a> •
+    <a href="#configuration">Configuration</a> •
+    <a href="#architecture--api-surfaces">Architecture</a> •
+    <a href="#contributing">Contributing</a>
   </p>
 </div>
 
 ![Code Sentinel hero](docs/images/code-sentinel-hero.svg)
 
-## Why Code Sentinel
-Teams lose time manually reproducing bug reports before they can fix anything. Code Sentinel converts a bug description into an executed validation pipeline with inspectable artifacts:
-
-- generated backend API test files
-- browser-driven edge-case checks (full-stack mode)
-- pass/fail outcomes + assertions
-- screenshots and bug write-ups
-- suggested fix directions
-
-## What Happens During a Run
-When you click **Run**, Code Sentinel:
-
-1. analyzes the target repository
-2. prepares an isolated sandbox
-3. generates and executes backend test files
-4. runs browser scenarios when full-stack scope is enabled
-5. persists results (tests, bugs, screenshots, summary)
-
-![Testing pipeline](docs/images/testing-pipeline.svg)
-
-## Product Surfaces
-### 1) Home (`/`)
-- choose repository (from connected GitHub account)
-- describe bug in plain English
-- choose mode: `fast` or `deep`
-- choose scope: `auto`, `backend-only`, `full-stack`
-- start run
-
-### 2) Results (`/test/[jobId]`)
-The page is intentionally ordered to move from summary to deep evidence:
-
-1. Header: repo, status, bug prompt
-2. Test Results Overview: totals, bug summary, analysis summary, technical details
-3. Detailed Bug Reports: confidence, root cause, affected layer, suggested fixes
-4. Tests: browser edge cases first, API test files second
-
-![Results layout](docs/images/results-layout.svg)
-
-In the **Tests** area:
-- browser rows include steps, UI/network assertions, and screenshots
-- backend cards include console output + full generated test code
-- generated backend test files can be downloaded directly from the UI
-
-### 3) Dashboard (`/dashboard`)
-- all runs in one place
-- tabs for `All`, `Running`, `Completed`, `Cancelled`
-- quick actions: cancel active runs, rerun completed runs
-- quick navigation back to detailed run evidence
-
-## Core Capabilities
-- Backend-first validation with generated test artifacts
-- Full-stack browser automation for real user-flow verification
-- Fast mode for quick signal and Deep mode for broader edge-case coverage
-- Structured bug records with confidence, source mapping, and fix suggestions
-- Persistent run history + metrics via Prisma
-
-## Stack
-- **Frontend:** Next.js 16, React 19, Tailwind, shadcn/ui
-- **API Layer:** tRPC + React Query
-- **Orchestration:** Inngest + Agent Kit
-- **Execution:** E2B sandbox
-- **Data:** Prisma + PostgreSQL
-- **Auth + Repo Access:** Clerk + GitHub OAuth (Octokit)
-
 ## Quick Start
+
 ### Prerequisites
 - Node.js 20+
 - PostgreSQL
@@ -96,7 +35,7 @@ In the **Tests** area:
 - Inngest keys
 - Optional: Cloudinary credentials for screenshot hosting
 
-### Install and run
+### Install + launch
 ```bash
 npm install
 npx prisma generate
@@ -109,9 +48,51 @@ In another terminal (recommended for local orchestration):
 npx inngest-cli@latest dev -u http://localhost:3000/api/inngest
 ```
 
-Open `http://localhost:3000`.
+Open `http://localhost:3000` and launch your first mission.
 
-## Environment Variables
+## Mission Features
+
+- **Mission setup from plain English:** pick a repo, describe a bug, and run.
+- **Fast vs Deep modes:** quick confirmation or broader edge-case sweep.
+- **Backend + full-stack coverage:** generated API tests plus browser-driven flows.
+- **Bug evidence pack:** assertions, outputs, screenshots, and root-cause hints.
+- **Mission Control dashboard:** rerun/cancel jobs and track status in real time.
+- **Persistent telemetry:** test and bug history stored via Prisma/Postgres.
+
+## How a Mission Runs
+
+1. **ANALYZING TARGET**: repository structure is inspected.
+2. **SETTING UP FOR BATTLE**: sandbox + environment are prepared.
+3. **ENGAGED IN TESTING**: generated backend tests and optional browser checks execute.
+4. **RESULTS LOCKED**: tests, bugs, screenshots, and summary are persisted.
+
+![Testing pipeline](docs/images/testing-pipeline.svg)
+
+## Product Surfaces
+
+### Home (`/`)
+- Select repository (from connected GitHub account)
+- Enter bug description
+- Choose mode: `fast` or `deep`
+- Choose scope: `auto`, `backend-only`, `full-stack`
+- Start mission
+
+### Results (`/test/[jobId]`)
+- Mission status + summary
+- Bug reports (`BUGS_DETECTED`)
+- Test evidence (`TESTS RUN`) with file output and screenshots
+- Download generated backend test files
+
+![Results layout](docs/images/results-layout.svg)
+
+### Dashboard (`/dashboard`)
+- Tabs: `All`, `Running`, `Completed`, `Cancelled`
+- Cancel active missions
+- Queue reruns from completed missions
+- Jump back to full mission evidence
+
+## Configuration
+
 Create `.env.local`:
 
 ```env
@@ -145,23 +126,36 @@ CLOUDINARY_API_SECRET=...
 CLOUDINARY_FOLDER=code-sentinel/screenshots
 ```
 
-## Runtime Note
-The model client in `src/inngest/functions.ts` is configured to use an OpenAI-compatible endpoint at `http://localhost:4141/v1` in the current setup. Update that configuration for your production provider/endpoint.
+### Runtime note
+`src/inngest/functions.ts` currently targets an OpenAI-compatible endpoint at `http://localhost:4141/v1`. Update this for your production provider.
 
-## Architecture Map
-| Layer | Key Files |
+## Scripts
+
+| Script | Purpose |
 |---|---|
-| Home and run creation | `src/app/(home)/page.tsx` |
+| `npm run dev` | Start Next.js app locally |
+| `npm run build` | Build for production |
+| `npm run start` | Run production build |
+| `npm run lint` | Run ESLint |
+| `npm run e2b:build:dev` | Build E2B template (dev) |
+| `npm run e2b:build:prod` | Build E2B template (prod) |
+
+## Architecture & API Surfaces
+
+| Layer | Key files |
+|---|---|
+| Home and mission creation | `src/app/(home)/page.tsx` |
 | Results UI | `src/app/test/[jobId]/page.tsx` |
 | Dashboard UI | `src/app/dashboard/page.tsx` |
-| Run mutation + app router | `src/trpc/routers/_app.ts` |
+| Run mutation + router root | `src/trpc/routers/_app.ts` |
 | Jobs APIs (list/get/cancel/rerun) | `src/trpc/routers/jobs.ts` |
-| GitHub repo fetch | `src/trpc/routers/github.ts` |
+| GitHub repository fetch | `src/trpc/routers/github.ts` |
 | Agent orchestration | `src/inngest/functions.ts` |
-| Agent tools | `src/inngest/tools/*` |
+| Agent toolchain | `src/inngest/tools/*` |
 | Data model | `prisma/schema.prisma` |
 
 ## Repository Structure
+
 ```text
 src/
   app/
@@ -183,4 +177,9 @@ docs/images/
 ```
 
 ## Contributing
-PRs are welcome. If you are adding major behavior changes, please also update the README sections for run flow and results layout.
+
+PRs are welcome. If you change mission flow, job statuses, results layout, or environment requirements, update this README in the same PR.
+
+## License
+
+No project license file is currently defined in the repository.
