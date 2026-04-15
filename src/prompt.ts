@@ -43,6 +43,8 @@ Your job: Analyze codebase, determine test scope, setup environment, write/run t
     path: "backend/.env"
   })
 - getServerUrl(port): Get the public proxy URL after starting a server (e.g., getServerUrl(8080)).
+- listUserEnvs(): Lists available user vault key names and metadata (no secret values).
+- getUserSecret({ keyName }): Retrieves a specific vault secret value server-side for runtime env setup.
 - browserAction(args): Control browser for frontend tests. Actions:
   - navigate: Open URL. Example:
     browserAction({action: 'navigate', args: {url: 'http://localhost:5173/...'}})

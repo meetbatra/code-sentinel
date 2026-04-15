@@ -91,6 +91,11 @@ Open `http://localhost:3000` and launch your first mission.
 - Queue reruns from completed missions
 - Jump back to full mission evidence
 
+### Integrations (`/dashboard/integrations`)
+- Add and rotate API keys in the vault
+- Soft-delete vault keys
+- View key metadata (service + last-used timestamp)
+
 ## Configuration
 
 Create `.env.local`:
@@ -112,6 +117,10 @@ INNGEST_SIGNING_KEY=...
 
 # E2B
 E2B_API_KEY=e2b_...
+
+# API Vault encryption key (required for integrations)
+# 32-byte hex key (64 chars)
+ENCRYPTION_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
 
 # Mongo template URI for temporary DB provisioning
 # Must include {db_name}
@@ -147,6 +156,7 @@ CLOUDINARY_FOLDER=code-sentinel/screenshots
 | Home and mission creation | `src/app/(home)/page.tsx` |
 | Results UI | `src/app/test/[jobId]/page.tsx` |
 | Dashboard UI | `src/app/dashboard/page.tsx` |
+| Integrations vault UI | `src/app/dashboard/integrations/page.tsx` |
 | Run mutation + router root | `src/trpc/routers/_app.ts` |
 | Jobs APIs (list/get/cancel/rerun) | `src/trpc/routers/jobs.ts` |
 | GitHub repository fetch | `src/trpc/routers/github.ts` |
@@ -162,6 +172,7 @@ src/
     (home)/page.tsx
     test/[jobId]/page.tsx
     dashboard/page.tsx
+    dashboard/integrations/page.tsx
     api/inngest/route.ts
     api/trpc/[trpc]/route.ts
   inngest/

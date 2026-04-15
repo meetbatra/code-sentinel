@@ -4,12 +4,14 @@ import { inngest } from "@/inngest/client";
 import { jobsRouter } from "./jobs";
 import { githubRouter } from "./github";
 import { repositoriesRouter } from "./repositories";
+import { integrationsRouter } from "./integrations";
 import { TRPCError } from "@trpc/server";
 
 export const appRouter = createTRPCRouter({
   github: githubRouter,
   jobs: jobsRouter,
   repositories: repositoriesRouter,
+  integrations: integrationsRouter,
 
   testAgent: createTRPCRouter({
     run: baseProcedure

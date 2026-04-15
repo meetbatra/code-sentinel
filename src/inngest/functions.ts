@@ -4,7 +4,6 @@ import {
     createState,
     createNetwork,
     openai,
-    anthropic,
 } from "@inngest/agent-kit";
 import { Sandbox } from "@e2b/code-interpreter";
 import { SANDBOX_TIMEOUT, TestingMode, TestingScope } from "@/inngest/types";
@@ -22,8 +21,11 @@ import { createUpdateServerInfoTool } from "@/inngest/tools/update-server-info";
 import { createRecordTestResultTool } from "@/inngest/tools/record-test-result";
 import { createRecordBugTool } from "@/inngest/tools/record-bug";
 import { createBrowserActionTool } from "@/inngest/tools/browser-action";
+import { createListUserEnvsTool } from "@/inngest/tools/list-user-envs-tool";
+import { createGetUserSecretTool } from "@/inngest/tools/get-user-secret";
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@/generated/prisma";
+import { listUserEnvs } from "@/inngest/tools/list-user-envs";
 
 interface TestAgentState {
     jobId: string;
@@ -40,6 +42,11 @@ interface TestAgentState {
         endpoints?: Array<{ method: string; path: string; file: string }>;
         envVarsNeeded?: string[];
         databaseUsed?: boolean;
+        userVault?: {
+            available: string[];
+            lastUsed: Record<string, string>;
+            serviceMapping: Record<string, string>;
+        };
     };
     serverInfo: {
         port?: number;
@@ -110,8 +117,9 @@ export const testAgentFunction = inngest.createFunction(
         event: "test-agent/run",
     },
     async ({ event, step }) => {
-        const { jobId, repoUrl, bugDescription, testingMode = "fast", testingScope = "auto" } = event.data as {
+        const { jobId, userId, repoUrl, bugDescription, testingMode = "fast", testingScope = "auto" } = event.data as {
             jobId: string;
+            userId: string;
             repoUrl: string;
             bugDescription: string;
             testingMode?: TestingMode;
@@ -191,13 +199,43 @@ export const testAgentFunction = inngest.createFunction(
             });
             await logEvent("STATUS", { status: "SETTING_UP" });
 
+            const userVault = await step.run("load-user-vault-metadata", async () => {
+                const vault = await listUserEnvs({ userId, db: prisma });
+                const currentJob = await prisma.job.findUnique({
+                    where: { id: jobId },
+                    select: { discoveryInfo: true },
+                });
+                const currentDiscoveryInfo =
+                    typeof currentJob?.discoveryInfo === "object" && currentJob.discoveryInfo !== null
+                        ? (currentJob.discoveryInfo as Record<string, unknown>)
+                        : {};
+
+                await prisma.job.update({
+                    where: { id: jobId },
+                    data: {
+                        discoveryInfo: {
+                            ...currentDiscoveryInfo,
+                            userVault: vault,
+                        } as Prisma.InputJsonValue,
+                    },
+                });
+
+                return vault;
+            });
+            await logEvent("DISCOVERY", {
+                action: "user_vault_loaded",
+                availableKeys: userVault.available,
+            });
+
             /* ---------------- State ---------------- */
 
             const state = createState<TestAgentState>({
                 jobId,
                 summary: "",
                 testFiles: {},
-                discoveryInfo: {},
+                discoveryInfo: {
+                    userVault,
+                },
                 serverInfo: {},
                 testResults: [],
                 detectedErrors: [],
@@ -230,6 +268,8 @@ export const testAgentFunction = inngest.createFunction(
                     createReadFilesTool({ sandboxId }),
                     createEnvTool({ sandboxId }),
                     createMongoDbTool({ sandboxId }),
+                    createListUserEnvsTool({ userId, db: prisma }),
+                    createGetUserSecretTool({ userId, db: prisma }),
                     createGetServerUrlTool({ sandboxId }),
                     createUpdateDiscoveryTool({ jobId }),
                     createUpdateServerInfoTool({ jobId }),
@@ -275,7 +315,7 @@ export const testAgentFunction = inngest.createFunction(
             });
 
             const result = await network.run(
-                `[TESTING MODE: ${testingMode.toUpperCase()}]\n[TESTING SCOPE: ${testingScope.toUpperCase()}]\n\n${bugDescription}`,
+                `[TESTING MODE: ${testingMode.toUpperCase()}]\n[TESTING SCOPE: ${testingScope.toUpperCase()}]\n[USER VAULT KEYS: ${userVault.available.join(", ") || "none"}]\n\n${bugDescription}`,
                 { state }
             );
             const testDurationMs = testStartedMs > 0 ? Date.now() - testStartedMs : 0;

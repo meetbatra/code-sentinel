@@ -8,6 +8,7 @@ export function Navbar() {
     const { isSignedIn } = useUser();
     const pathname = usePathname();
     const isOnDashboard = pathname === "/dashboard";
+    const isOnIntegrations = pathname === "/dashboard/integrations";
 
     return (
         <nav className="fixed top-0 w-full z-50 flex items-center justify-between px-6 h-12 bg-[#0a0e1a] shadow-[0_4px_0px_0px_rgba(202,253,0,1)]">
@@ -29,6 +30,15 @@ export function Navbar() {
                     </SignInButton>
                 ) : (
                     <>
+                        {!isOnIntegrations && (
+                            <Link
+                                href="/dashboard/integrations"
+                                className="h-7 px-4 inline-flex items-center bg-[#1a1f2f] text-[#cafd00] border-2 border-[#cafd00] font-headline font-black text-xs uppercase shadow-[3px_3px_0px_0px_rgba(202,253,0,0.4)] hover:bg-[#cafd00] hover:text-[#4a5e00] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all duration-0 tracking-widest"
+                            >
+                                Integrations
+                            </Link>
+                        )}
+
                         {isOnDashboard ? (
                             <Link
                                 href="/"
