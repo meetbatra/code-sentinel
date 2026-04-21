@@ -4,6 +4,7 @@ import {
     createState,
     createNetwork,
     openai,
+    anthropic,
 } from "@inngest/agent-kit";
 import { Sandbox } from "@e2b/code-interpreter";
 import { SANDBOX_TIMEOUT, TestingMode, TestingScope } from "@/inngest/types";
@@ -22,7 +23,7 @@ import { createRecordTestResultTool } from "@/inngest/tools/record-test-result";
 import { createRecordBugTool } from "@/inngest/tools/record-bug";
 import { createBrowserActionTool } from "@/inngest/tools/browser-action";
 import { createListUserEnvsTool } from "@/inngest/tools/list-user-envs-tool";
-import { createGetUserSecretTool } from "@/inngest/tools/get-user-secret";
+import { createInjectUserEnvsTool } from "@/inngest/tools/inject-user-envs";
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@/generated/prisma";
 import { listUserEnvs } from "@/inngest/tools/list-user-envs";
@@ -259,8 +260,11 @@ export const testAgentFunction = inngest.createFunction(
                 system: TEST_AGENT_PROMPT(testingMode, testingScope),
                 model: openai({
                     model: "claude-haiku-4.5",
-                    baseUrl: "http://localhost:4141/v1",
-                    apiKey: "",
+                    apiKey: "dummy",
+                    baseUrl: "http://localhost:4141",
+                    // defaultParameters: {
+                    //     max_tokens: 4096,
+                    // },
                 }),
                 tools: [
                     createTerminalTool({ sandboxId }),
@@ -269,7 +273,7 @@ export const testAgentFunction = inngest.createFunction(
                     createEnvTool({ sandboxId }),
                     createMongoDbTool({ sandboxId }),
                     createListUserEnvsTool({ userId, db: prisma }),
-                    createGetUserSecretTool({ userId, db: prisma }),
+                    createInjectUserEnvsTool({ sandboxId, userId, db: prisma }),
                     createGetServerUrlTool({ sandboxId }),
                     createUpdateDiscoveryTool({ jobId }),
                     createUpdateServerInfoTool({ jobId }),

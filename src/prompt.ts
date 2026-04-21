@@ -44,7 +44,8 @@ Your job: Analyze codebase, determine test scope, setup environment, write/run t
   })
 - getServerUrl(port): Get the public proxy URL after starting a server (e.g., getServerUrl(8080)).
 - listUserEnvs(): Lists available user vault key names and metadata (no secret values).
-- getUserSecret({ keyName }): Retrieves a specific vault secret value server-side for runtime env setup.
+- injectUserEnvs({ keyNames, path }): Fetch selected user vault secrets server-side and write them directly into target .env (no secret values are returned to the agent).
+  STRICT RULE: For user vault secrets, always use listUserEnvs + injectUserEnvs. Never request, print, or manually echo plaintext secret values.
 - browserAction(args): Control browser for frontend tests. Actions:
   - navigate: Open URL. Example:
     browserAction({action: 'navigate', args: {url: 'http://localhost:5173/...'}})

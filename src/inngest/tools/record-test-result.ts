@@ -111,15 +111,15 @@ export const createRecordTestResultTool = ({ jobId, sandboxId }: RecordTestResul
         parameters: z.object({
             testFile: z.string().describe("Path to the test file"),
             testName: z.string().describe("Descriptive name of what was tested"),
-            featureName: z.string().optional().describe("Feature group label (e.g. Signup Validation)"),
-            type: z.enum(["backend", "full-stack"]).default("backend").describe("Testing layer for this result"),
+            featureName: z.string().nullable().describe("Feature group label (e.g. Signup Validation)"),
+            type: z.enum(["backend", "full-stack"]).describe("Testing layer for this result"),
             status: testStatusSchema.describe("Test result status"),
-            exitCode: z.number().describe("Process exit code").default(0),
-            output: z.string().describe("Test output or error message").default(""),
-            screenshotPath: z.string().optional().describe("Sandbox-local screenshot path. Tool uploads and stores public URL"),
-            steps: z.array(z.string()).optional().describe("Ordered steps performed for this edge case"),
-            networkAssertions: z.array(networkAssertionSchema).optional().describe("API/network checks for this edge case"),
-            uiAssertions: z.array(uiAssertionSchema).optional().describe("UI checks for this edge case"),
+            exitCode: z.number().describe("Process exit code"),
+            output: z.string().describe("Test output or error message"),
+            screenshotPath: z.string().nullable().describe("Sandbox-local screenshot path. Tool uploads and stores public URL"),
+            steps: z.array(z.string()).nullable().describe("Ordered steps performed for this edge case"),
+            networkAssertions: z.array(networkAssertionSchema).nullable().describe("API/network checks for this edge case"),
+            uiAssertions: z.array(uiAssertionSchema).nullable().describe("UI checks for this edge case"),
         }),
         handler: async (params, { step: toolStep, network }) => {
             if (!network) {

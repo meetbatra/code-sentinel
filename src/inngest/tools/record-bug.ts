@@ -15,24 +15,23 @@ export const createRecordBugTool = ({ jobId }: RecordBugOptions) => {
         description: "Record a detected bug/error. Call this when a test confirms a bug exists.",
         parameters: z.object({
             testFile: z.string().describe("Test file that detected the bug"),
-            testName: z.string().describe("Name of the test that caught it").default(""),
+            testName: z.string().describe("Name of the test that caught it"),
             message: z.string().describe("Bug description"),
-            sourceFile: z.string().describe("Source file containing the bug").default(""),
-            rootCause: z.string().describe("Explanation of why the bug occurs").default(""),
-            confidence: z.enum(["LOW", "MEDIUM", "HIGH"]).describe("Confidence level of the bug detection").default("MEDIUM"),
-            affectedLayer: z.enum(["frontend", "backend", "both"]).optional().describe("Which application layer is impacted"),
+            sourceFile: z.string().describe("Source file containing the bug"),
+            rootCause: z.string().describe("Explanation of why the bug occurs"),
+            confidence: z.enum(["LOW", "MEDIUM", "HIGH"]).describe("Confidence level of the bug detection"),
+            affectedLayer: z.enum(["frontend", "backend", "both"]).nullable().describe("Which application layer is impacted"),
             suggestedFixes: z
                 .array(
                     z.object({
                         type: z.enum(["modify", "new"]).describe("Whether to modify an existing file or create a new file"),
                         filePath: z.string().min(1).max(400).describe("Path to the file to modify or create"),
-                        existingSnippet: z.string().max(20000).describe("Exact snippet from the existing file to be replaced (required for modify)").default(""),
+                        existingSnippet: z.string().max(20000).describe("Exact snippet from the existing file to be replaced (required for modify)"),
                         updatedSnippet: z.string().max(20000).describe("Updated snippet or full file content (for new files)"),
                     })
                 )
                 .max(8)
-                .describe("Suggested code changes to fix the bug")
-                .default([]),
+                .describe("Suggested code changes to fix the bug"),
         }),
         handler: async (params, { step: toolStep, network }) => {
             if (!network) {

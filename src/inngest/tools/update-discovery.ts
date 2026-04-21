@@ -24,22 +24,22 @@ export const createUpdateDiscoveryTool = ({ jobId }: UpdateDiscoveryOptions) => 
         name: "updateDiscovery",
         description: "Update discovery information in state as you learn about the codebase. Supports backend-only and full-stack metadata.",
         parameters: z.object({
-            entryPoint: z.string().optional().describe("Main server file (e.g., 'server.js')"),
-            framework: z.string().optional().describe("Detected framework (e.g., 'express', 'fastify')"),
-            moduleType: z.string().optional().describe("Module system type: 'esm' or 'commonjs'"),
-            backendEntryPoint: z.string().optional().describe("Backend/server entry point for full-stack apps"),
-            frontendEntryPoint: z.string().optional().describe("Frontend entry point for full-stack apps"),
-            backendFramework: z.string().optional().describe("Backend framework (e.g., express, fastify)"),
-            frontendFramework: z.string().optional().describe("Frontend framework (e.g., react, next, ejs views)"),
+            entryPoint: z.string().nullable().describe("Main server file (e.g., 'server.js')"),
+            framework: z.string().nullable().describe("Detected framework (e.g., 'express', 'fastify')"),
+            moduleType: z.string().nullable().describe("Module system type: 'esm' or 'commonjs'"),
+            backendEntryPoint: z.string().nullable().describe("Backend/server entry point for full-stack apps"),
+            frontendEntryPoint: z.string().nullable().describe("Frontend entry point for full-stack apps"),
+            backendFramework: z.string().nullable().describe("Backend framework (e.g., express, fastify)"),
+            frontendFramework: z.string().nullable().describe("Frontend framework (e.g., react, next, ejs views)"),
             endpoints: z.array(
                 z.object({
                     method: z.string().describe("HTTP method"),
                     path: z.string().describe("Route path"),
                     file: z.string().describe("File containing route"),
                 })
-            ).optional().describe("Array of discovered endpoints"),
-            envVarsNeeded: z.array(z.string()).optional().describe("Required environment variables"),
-            databaseUsed: z.boolean().optional().describe("Whether database is used"),
+            ).nullable().describe("Array of discovered endpoints"),
+            envVarsNeeded: z.array(z.string()).nullable().describe("Required environment variables"),
+            databaseUsed: z.boolean().nullable().describe("Whether database is used"),
         }),
         handler: async (params, { step: toolStep, network }) => {
             if (!network) {
@@ -48,9 +48,9 @@ export const createUpdateDiscoveryTool = ({ jobId }: UpdateDiscoveryOptions) => 
 
             try {
                 return await toolStep?.run("update-discovery", async () => {
-                    const raw = params as Record<string, unknown>;
-                    const has = (key: string) => Object.prototype.hasOwnProperty.call(raw, key);
                     const updatesList: string[] = [];
+
+                    const has = (key: keyof typeof params) => params[key] !== null && params[key] !== undefined;
 
                     if (has("entryPoint")) updatesList.push("entryPoint");
                     if (has("framework")) updatesList.push("framework");
@@ -87,7 +87,7 @@ export const createUpdateDiscoveryTool = ({ jobId }: UpdateDiscoveryOptions) => 
                         if (has("frontendEntryPoint")) discoveryInfo.frontendEntryPoint = data.frontendEntryPoint;
                         if (has("backendFramework")) discoveryInfo.backendFramework = data.backendFramework;
                         if (has("frontendFramework")) discoveryInfo.frontendFramework = data.frontendFramework;
-                        if (has("endpoints")) {
+                        if (has("endpoints") && data.endpoints) {
                             const existing = Array.isArray(discoveryInfo.endpoints)
                                 ? discoveryInfo.endpoints as Array<{ method: string; path: string; file: string }>
                                 : [];
@@ -123,7 +123,7 @@ export const createUpdateDiscoveryTool = ({ jobId }: UpdateDiscoveryOptions) => 
                         ...(has("envVarsNeeded") && { envVarsNeeded: data.envVarsNeeded }),
                         ...(has("databaseUsed") && { databaseUsed: data.databaseUsed }),
                     };
-                    if (has("endpoints")) {
+                    if (has("endpoints") && data.endpoints) {
                         const existing = Array.isArray(currentDiscoveryInfo.endpoints)
                             ? currentDiscoveryInfo.endpoints as Array<{ method: string; path: string; file: string }>
                             : [];

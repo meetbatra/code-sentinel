@@ -12,18 +12,18 @@ export const createUpdateServerInfoTool = ({ jobId }: UpdateServerInfoOptions) =
         name: "updateServerInfo",
         description: "Update server information in state. Supports generic single-server fields and split backend/frontend fields.",
         parameters: z.object({
-            port: z.number().optional().describe("Server port number"),
-            sandboxUrl: z.string().optional().describe("Public sandbox URL"),
-            startCommand: z.string().optional().describe("Command used to start server"),
-            isRunning: z.boolean().optional().describe("Whether server is running"),
-            backendPort: z.number().optional().describe("Backend server port number"),
-            backendUrl: z.string().optional().describe("Backend public URL"),
-            backendStartCommand: z.string().optional().describe("Backend start command"),
-            backendRunning: z.boolean().optional().describe("Whether backend server is running"),
-            frontendPort: z.number().optional().describe("Frontend server port number"),
-            frontendUrl: z.string().optional().describe("Frontend public URL (if available)"),
-            frontendStartCommand: z.string().optional().describe("Frontend start command"),
-            frontendRunning: z.boolean().optional().describe("Whether frontend server is running"),
+            port: z.number().nullable().describe("Server port number"),
+            sandboxUrl: z.string().nullable().describe("Public sandbox URL"),
+            startCommand: z.string().nullable().describe("Command used to start server"),
+            isRunning: z.boolean().nullable().describe("Whether server is running"),
+            backendPort: z.number().nullable().describe("Backend server port number"),
+            backendUrl: z.string().nullable().describe("Backend public URL"),
+            backendStartCommand: z.string().nullable().describe("Backend start command"),
+            backendRunning: z.boolean().nullable().describe("Whether backend server is running"),
+            frontendPort: z.number().nullable().describe("Frontend server port number"),
+            frontendUrl: z.string().nullable().describe("Frontend public URL (if available)"),
+            frontendStartCommand: z.string().nullable().describe("Frontend start command"),
+            frontendRunning: z.boolean().nullable().describe("Whether frontend server is running"),
         }),
         handler: async (params, { step: toolStep, network }) => {
             if (!network) {
@@ -32,9 +32,8 @@ export const createUpdateServerInfoTool = ({ jobId }: UpdateServerInfoOptions) =
 
             try {
                 return await toolStep?.run("update-server-info", async () => {
-                    const raw = params as Record<string, unknown>;
-                    const has = (key: string) => Object.prototype.hasOwnProperty.call(raw, key);
                     const updatesList: string[] = [];
+                    const has = (key: keyof typeof params) => params[key] !== null && params[key] !== undefined;
 
                     if (has("port")) updatesList.push("port");
                     if (has("sandboxUrl")) updatesList.push("sandboxUrl");
