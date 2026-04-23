@@ -26,7 +26,7 @@ import { createListUserEnvsTool } from "@/inngest/tools/list-user-envs-tool";
 import { createInjectUserEnvsTool } from "@/inngest/tools/inject-user-envs";
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@/generated/prisma";
-import { listUserEnvs } from "@/inngest/tools/list-user-envs";
+import { listUserEnvs } from "@/inngest/lib/list-user-envs";
 
 interface TestAgentState {
     jobId: string;

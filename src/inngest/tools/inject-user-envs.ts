@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { PrismaClient } from "@/generated/prisma";
 import { getSandbox } from "@/inngest/utils";
 import { getSecret } from "@/inngest/tools/get-secret";
+import { mergeEnvEntries } from "@/inngest/lib/env-file";
 
 type CreateInjectUserEnvsToolOptions = {
   sandboxId: string;
@@ -38,7 +39,7 @@ export const createInjectUserEnvsTool = ({
   return createTool({
     name: "injectUserEnvs",
     description:
-      "Fetch selected user vault secrets server-side and inject them into a sandbox .env file without returning secret values.",
+      "Fetch selected user vault secrets server-side and merge them into a sandbox .env file without returning secret values.",
     parameters: paramsSchema,
     handler: async (params, { step: toolStep }) => {
       const parsed = paramsSchema.safeParse(params);
@@ -83,31 +84,15 @@ export const createInjectUserEnvsTool = ({
             existingEnvContent = "";
           }
 
-          const lines = existingEnvContent ? existingEnvContent.split("\n") : [];
-
-          for (const { key, value } of resolvedSecrets) {
-            const envLine = `${key}=${value}`;
-            let updated = false;
-
-            for (let i = 0; i < lines.length; i++) {
-              if (lines[i].trim().startsWith(`${key}=`)) {
-                lines[i] = envLine;
-                updated = true;
-                break;
-              }
-            }
-
-            if (!updated) {
-              lines.push(envLine);
-            }
-          }
-
-          await sandbox.files.write(envFilePath, lines.join("\n"));
+          const mergeResult = mergeEnvEntries(existingEnvContent, resolvedSecrets);
+          await sandbox.files.write(envFilePath, mergeResult.content);
 
           return {
             status: "injected",
             path: parsed.data.path || ".env",
             injectedKeys: resolvedSecrets.map((item) => item.key),
+            addedKeys: mergeResult.addedKeys,
+            updatedKeys: mergeResult.updatedKeys,
           };
         });
 
@@ -123,10 +108,16 @@ export const createInjectUserEnvsTool = ({
             const injectedKeys = Array.isArray((result as { injectedKeys?: unknown }).injectedKeys)
               ? (result as { injectedKeys: string[] }).injectedKeys
               : [];
+            const addedKeys = Array.isArray((result as { addedKeys?: unknown }).addedKeys)
+              ? (result as { addedKeys: string[] }).addedKeys
+              : [];
+            const updatedKeys = Array.isArray((result as { updatedKeys?: unknown }).updatedKeys)
+              ? (result as { updatedKeys: string[] }).updatedKeys
+              : [];
             const targetPath = typeof (result as { path?: unknown }).path === "string"
               ? (result as { path: string }).path
               : ".env";
-            return `Injected ${injectedKeys.length} vault key(s) into ${targetPath}: ${injectedKeys.join(", ")}`;
+            return `Injected ${injectedKeys.length} vault key(s) into ${targetPath}: ${injectedKeys.join(", ")}. Added: ${addedKeys.join(", ") || "none"}. Updated: ${updatedKeys.join(", ") || "none"}.`;
           }
         }
 

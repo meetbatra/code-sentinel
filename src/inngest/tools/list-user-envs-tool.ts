@@ -1,7 +1,7 @@
 import { createTool } from "@inngest/agent-kit";
 import { z } from "zod";
 import type { PrismaClient } from "@/generated/prisma";
-import { listUserEnvs } from "@/inngest/tools/list-user-envs";
+import { listUserEnvs } from "@/inngest/lib/list-user-envs";
 
 type CreateListUserEnvsToolOptions = {
   userId: string;

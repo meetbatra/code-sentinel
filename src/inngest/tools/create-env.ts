@@ -7,6 +7,9 @@ interface CreateEnvToolOptions {
     sandboxId: string;
 }
 
+const POST_STEP_ENV_VAR_PATTERN =
+    /(MONGO|MONGODB|DATABASE|POSTGRES|MYSQL|SQLITE|DB_URL|DATABASE_URL|REDIS|SECRET|TOKEN|API_KEY|ACCESS_KEY|PRIVATE_KEY|CLIENT_SECRET|AUTH_TOKEN|WEBHOOK_SECRET)/i;
+
 const paramsSchema = z.object({
     envVars: z.array(
         z.object({
@@ -20,7 +23,7 @@ const paramsSchema = z.object({
 export const createEnvTool = ({ sandboxId }: CreateEnvToolOptions) => {
     return createTool({
         name: "createEnv",
-        description: "Create or overwrite a .env file at specified path (default: repo root). Enforces complete env-var coverage for the target scope.",
+        description: "Create or overwrite a .env file at the specified path (default: repo root). This is the reset step and must run before additive tools like createMongoDb or injectUserEnvs.",
         parameters: paramsSchema,
         handler: async (params, { step: toolStep }) => {
             const parsed = paramsSchema.safeParse(params);
@@ -30,7 +33,6 @@ export const createEnvTool = ({ sandboxId }: CreateEnvToolOptions) => {
 
             const { envVars } = parsed.data;
             const providedKeys = new Set(envVars.map((v) => v.key));
-
             const envContent = envVars
                 .map(({ key, value }) => `${key}=${value}`)
                 .join("\n");
@@ -40,6 +42,7 @@ export const createEnvTool = ({ sandboxId }: CreateEnvToolOptions) => {
                     const sandbox = await getSandbox(sandboxId);
                     const filePath = parsed.data.path || ".env";
                     const scopeDir = path.posix.dirname(filePath) === "." ? "." : path.posix.dirname(filePath);
+                    const envFilePath = `repo/${filePath}`;
 
                     // Discover env references before writing .env to prevent partial/incomplete env files.
                     const targetPath = scopeDir === "." ? "." : scopeDir;
@@ -93,9 +96,8 @@ grep -RnoE \
                         }
                     }
 
-                    const dbVarPattern = /(MONGO|MONGODB|DATABASE|POSTGRES|MYSQL|SQLITE|DB_URL|DATABASE_URL|REDIS)/i;
                     const missing = Array.from(discovered).filter(
-                        (key) => !providedKeys.has(key) && !dbVarPattern.test(key)
+                        (key) => !providedKeys.has(key) && !POST_STEP_ENV_VAR_PATTERN.test(key)
                     );
 
                     if (missing.length > 0) {
@@ -107,7 +109,7 @@ grep -RnoE \
                         };
                     }
 
-                    await sandbox.files.write(`repo/${filePath}`, envContent);
+                    await sandbox.files.write(envFilePath, envContent);
 
                     return {
                         status: "env_created",
@@ -124,15 +126,22 @@ grep -RnoE \
                 }
 
                 if (result && typeof result === 'object' && 'vars_written' in result) {
-                    return `Created .env file with ${result.vars_written.length} variable(s): ${result.vars_written.join(", ")}`;
+                    const varsWritten = Array.isArray((result as { vars_written?: unknown }).vars_written)
+                        ? (result as { vars_written: string[] }).vars_written
+                        : [];
+                    return `Overwrote ${filePathFromResult(result)} with ${varsWritten.length} variable(s): ${varsWritten.join(", ") || "none"}.`;
                 }
 
-                return `Created .env file with ${envVars.length} variable(s)`;
+                return `Overwrote ${parsed.data.path || ".env"} with ${envVars.length} variable(s)`;
             } catch (error) {
-                return `Failed to create .env file: ${
+                return `Failed to overwrite .env file: ${
                     error instanceof Error ? error.message : String(error)
                 }`;
             }
         },
     });
 };
+
+function filePathFromResult(result: { file?: unknown }) {
+    return typeof result.file === "string" ? result.file : ".env";
+}
