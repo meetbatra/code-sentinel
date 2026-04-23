@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useTRPC } from "@/trpc/client";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -9,6 +9,13 @@ import { useUser } from "@clerk/nextjs";
 import Link from "next/link";
 import { Loader2, Search, X, GitBranch } from "lucide-react";
 import { Navbar } from "@/components/navbar";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 
 export default function Page() {
     const trpc = useTRPC();
@@ -20,24 +27,8 @@ export default function Page() {
     const [testingMode, setTestingMode] = useState<"fast" | "deep">("fast");
     const [testingScope, setTestingScope] = useState<"auto" | "backend-only" | "full-stack">("auto");
 
-    // Dropdown open states
-    const [modeOpen, setModeOpen] = useState(false);
-    const [scopeOpen, setScopeOpen] = useState(false);
     const [repoModalOpen, setRepoModalOpen] = useState(false);
     const [repoSearch, setRepoSearch] = useState("");
-
-    const modeRef = useRef<HTMLDivElement>(null);
-    const scopeRef = useRef<HTMLDivElement>(null);
-
-    // Close dropdowns on outside click
-    useEffect(() => {
-        const handler = (e: MouseEvent) => {
-            if (modeRef.current && !modeRef.current.contains(e.target as Node)) setModeOpen(false);
-            if (scopeRef.current && !scopeRef.current.contains(e.target as Node)) setScopeOpen(false);
-        };
-        document.addEventListener("mousedown", handler);
-        return () => document.removeEventListener("mousedown", handler);
-    }, []);
 
     // Lock body scroll when repo modal is open
     useEffect(() => {
@@ -244,59 +235,65 @@ export default function Page() {
                                 ></textarea>
                                 
                                 <div className="absolute bottom-6 left-6 flex flex-wrap gap-3">
-                                    {/* Mode Dropdown — click based */}
-                                    <div className="relative" ref={modeRef}>
-                                        <button
-                                            onClick={() => { setModeOpen(o => !o); setScopeOpen(false); }}
-                                            className={`flex items-center gap-2 bg-[#1a1f2f] border-2 px-3 py-1 text-xs font-headline font-bold transition-all ${modeOpen ? "border-[#f3ffca] text-[#f3ffca]" : "border-[#444756] text-[#a7aabb] hover:border-[#f3ffca] hover:text-[#f3ffca]"}`}
+                                    <Select
+                                        value={testingMode}
+                                        onValueChange={(value: "fast" | "deep") => setTestingMode(value)}
+                                    >
+                                        <SelectTrigger className="h-auto min-w-[11rem] rounded-none border-2 border-[#444756] bg-[#1a1f2f] px-3 py-1 text-left text-xs font-headline font-bold text-[#a7aabb] shadow-none hover:border-[#f3ffca] hover:text-[#f3ffca] focus-visible:border-[#f3ffca] focus-visible:ring-0 [&>span]:flex [&>span]:items-center [&>span]:gap-2">
+                                            <SelectValue aria-label={testingMode}>
+                                                <span className="uppercase tracking-widest">{testingMode}</span>
+                                                <span className="text-[10px] text-[#717584]">- speed</span>
+                                            </SelectValue>
+                                        </SelectTrigger>
+                                        <SelectContent
+                                            position="popper"
+                                            align="start"
+                                            viewportClassName="py-0"
+                                            className="w-44 rounded-none border-4 border-[#f3ffca] bg-[#202537] p-0"
                                         >
-                                            <span className="uppercase tracking-widest">{testingMode}</span>
-                                            <span className="text-[10px] text-[#717584]">— speed</span>
-                                            <span className="material-symbols-outlined text-sm">{modeOpen ? "expand_less" : "expand_more"}</span>
-                                        </button>
-                                        {modeOpen && (
-                                            <div className="absolute bottom-full left-0 w-44 bg-[#202537] border-4 border-[#f3ffca] z-50">
-                                                {(["fast", "deep"] as const).map((m) => (
-                                                    <div
-                                                        key={m}
-                                                        onClick={() => { setTestingMode(m); setModeOpen(false); }}
-                                                        className={`px-3 py-2 cursor-pointer text-xs font-headline font-black uppercase tracking-widest transition-colors ${testingMode === m ? "bg-[#f3ffca] text-black" : "text-white hover:bg-[#f3ffca] hover:text-black"}`}
-                                                    >
-                                                        {m}
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
+                                            {(["fast", "deep"] as const).map((mode) => (
+                                                <SelectItem
+                                                    key={mode}
+                                                    value={mode}
+                                                    className="rounded-none px-3 py-2 text-xs font-headline font-black uppercase tracking-widest text-white focus:bg-[#f3ffca] focus:text-black data-[state=checked]:bg-[#f3ffca] data-[state=checked]:text-black"
+                                                >
+                                                    {mode}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
 
-                                    {/* Scope Dropdown — click based */}
-                                    <div className="relative" ref={scopeRef}>
-                                        <button
-                                            onClick={() => { setScopeOpen(o => !o); setModeOpen(false); }}
-                                            className={`flex items-center gap-2 bg-[#1a1f2f] border-2 px-3 py-1 text-xs font-headline font-bold transition-all ${scopeOpen ? "border-[#f3ffca] text-[#f3ffca]" : "border-[#444756] text-[#a7aabb] hover:border-[#f3ffca] hover:text-[#f3ffca]"}`}
+                                    <Select
+                                        value={testingScope}
+                                        onValueChange={(value: "auto" | "backend-only" | "full-stack") => setTestingScope(value)}
+                                    >
+                                        <SelectTrigger className="h-auto min-w-[11rem] rounded-none border-2 border-[#444756] bg-[#1a1f2f] px-3 py-1 text-left text-xs font-headline font-bold text-[#a7aabb] shadow-none hover:border-[#f3ffca] hover:text-[#f3ffca] focus-visible:border-[#f3ffca] focus-visible:ring-0 [&>span]:flex [&>span]:items-center [&>span]:gap-2">
+                                            <SelectValue aria-label={testingScope}>
+                                                <span className="uppercase tracking-widest">{scopeLabels[testingScope]}</span>
+                                                <span className="text-[10px] text-[#717584]">- scope</span>
+                                            </SelectValue>
+                                        </SelectTrigger>
+                                        <SelectContent
+                                            position="popper"
+                                            align="start"
+                                            viewportClassName="py-0"
+                                            className="w-44 rounded-none border-4 border-[#f3ffca] bg-[#202537] p-0"
                                         >
-                                            <span className="uppercase tracking-widest">{scopeLabels[testingScope]}</span>
-                                            <span className="text-[10px] text-[#717584]">— scope</span>
-                                            <span className="material-symbols-outlined text-sm">{scopeOpen ? "expand_less" : "expand_more"}</span>
-                                        </button>
-                                        {scopeOpen && (
-                                            <div className="absolute bottom-full left-0 w-44 bg-[#202537] border-4 border-[#f3ffca] z-50">
-                                                {([
-                                                    { value: "auto", label: "Auto" },
-                                                    { value: "backend-only", label: "API" },
-                                                    { value: "full-stack", label: "Full-stack" },
-                                                ] as const).map(({ value, label }) => (
-                                                    <div
-                                                        key={value}
-                                                        onClick={() => { setTestingScope(value); setScopeOpen(false); }}
-                                                        className={`px-3 py-2 cursor-pointer text-xs font-headline font-black uppercase tracking-widest transition-colors ${testingScope === value ? "bg-[#f3ffca] text-black" : "text-white hover:bg-[#f3ffca] hover:text-black"}`}
-                                                    >
-                                                        {label}
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
+                                            {([
+                                                { value: "auto", label: "Auto" },
+                                                { value: "backend-only", label: "API" },
+                                                { value: "full-stack", label: "Full-stack" },
+                                            ] as const).map(({ value, label }) => (
+                                                <SelectItem
+                                                    key={value}
+                                                    value={value}
+                                                    className="rounded-none px-3 py-2 text-xs font-headline font-black uppercase tracking-widest text-white focus:bg-[#f3ffca] focus:text-black data-[state=checked]:bg-[#f3ffca] data-[state=checked]:text-black"
+                                                >
+                                                    {label}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
                                 </div>
 
                                 {/* Circular START TEST button — overhangs outside textarea corner */}
@@ -409,4 +406,3 @@ export default function Page() {
         </div>
     );
 }
-
