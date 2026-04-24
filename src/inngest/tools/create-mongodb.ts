@@ -2,6 +2,7 @@ import { z } from "zod";
 import { createTool } from "@inngest/agent-kit";
 
 import { getSandbox } from "@/inngest/utils";
+import { mergeEnvEntries } from "@/inngest/lib/env-file";
 
 interface CreateMongoDbToolOptions {
     sandboxId: string;
@@ -21,7 +22,7 @@ export const createMongoDbTool = ({
     return createTool({
         name: "createMongoDb",
         description:
-            "Provision a temporary MongoDB database and inject its URI into the sandbox .env file at specified path (default: repo root) using a specified environment variable name",
+            "Provision a temporary MongoDB database and merge its URI into the sandbox .env file at the specified path (default: repo root) using a specified environment variable name",
         parameters: paramsSchema,
         handler: async (params, { step: toolStep }) => {
             const parsed = paramsSchema.safeParse(params);
@@ -55,57 +56,50 @@ export const createMongoDbTool = ({
                     const sandbox = await getSandbox(sandboxId);
                     const envFilePath = `repo/${parsed.data.path || ".env"}`;
 
-                    let existingEnvContent: string;
-                    let envExists: boolean;
-
+                    let existingEnvContent = "";
                     try {
                         existingEnvContent = await sandbox.files.read(envFilePath);
-                        envExists = true;
                     } catch {
                         existingEnvContent = "";
-                        envExists = false;
                     }
 
-                    let newEnvContent: string;
-
-                    if (envExists && existingEnvContent) {
-                        const lines = existingEnvContent.split("\n");
-                        let updated = false;
-
-                        const updatedLines = lines.map((line) => {
-                            if (line.trim().startsWith(`${envVarName}=`)) {
-                                updated = true;
-                                return `${envVarName}=${mongoUri}`;
-                            }
-                            return line;
-                        });
-
-                        if (!updated) {
-                            updatedLines.push(`${envVarName}=${mongoUri}`);
-                        }
-
-                        newEnvContent = updatedLines.join("\n");
-                    } else {
-                        newEnvContent = `${envVarName}=${mongoUri}`;
-                    }
-
-                    await sandbox.files.write(envFilePath, newEnvContent);
+                    const mergeResult = mergeEnvEntries(existingEnvContent, [
+                        { key: envVarName, value: mongoUri },
+                    ]);
+                    await sandbox.files.write(envFilePath, mergeResult.content);
 
                     return {
                         status: "db_created",
                         db_name: dbName,
                         env_var: envVarName,
                         env_file: parsed.data.path || ".env",
+                        added_keys: mergeResult.addedKeys,
+                        updated_keys: mergeResult.updatedKeys,
                     };
                 });
 
                 if (result && typeof result === 'object' && 'db_name' in result) {
-                    return `Created MongoDB database "${result.db_name}" and injected ${result.env_var} into .env`;
+                    const dbName = typeof (result as { db_name?: unknown }).db_name === "string"
+                        ? (result as { db_name: string }).db_name
+                        : "unknown";
+                    const envVar = typeof (result as { env_var?: unknown }).env_var === "string"
+                        ? (result as { env_var: string }).env_var
+                        : envVarName;
+                    const envFile = typeof (result as { env_file?: unknown }).env_file === "string"
+                        ? (result as { env_file: string }).env_file
+                        : parsed.data.path || ".env";
+                    const addedKeys = Array.isArray((result as { added_keys?: unknown }).added_keys)
+                        ? (result as { added_keys: string[] }).added_keys
+                        : [];
+                    const updatedKeys = Array.isArray((result as { updated_keys?: unknown }).updated_keys)
+                        ? (result as { updated_keys: string[] }).updated_keys
+                        : [];
+                    return `Created MongoDB database "${dbName}" and merged ${envVar} into ${envFile}. Added: ${addedKeys.join(", ") || "none"}. Updated: ${updatedKeys.join(", ") || "none"}.`;
                 } else if (typeof result === 'string' && result.startsWith('Error:')) {
                     return result;
                 }
 
-                return `Created MongoDB database and injected ${envVarName} into .env`;
+                return `Created MongoDB database and merged ${envVarName} into ${parsed.data.path || ".env"}`;
             } catch (error) {
                 return `Failed to create MongoDB configuration: ${
                     error instanceof Error ? error.message : String(error)

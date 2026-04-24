@@ -73,8 +73,32 @@ model User {
 
   repositories Repository[]
   jobs         Job[]
+  apiKeys      UserApiKey[]
 
   @@index([clerkId])
+}
+
+model UserApiKey {
+  id        String @id @default(uuid())
+  userId    String
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name    String  @db.Text
+  service String? @db.Text
+
+  encryptedValue String @db.Text
+  iv             String @db.Text
+  authTag        String @db.Text
+  keyVersion     Int    @default(1)
+
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  lastUsedAt DateTime?
+  deletedAt  DateTime?
+
+  @@unique([userId, name])
+  @@index([userId])
+  @@index([deletedAt])
 }
 
 model Repository {
