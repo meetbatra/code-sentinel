@@ -51,6 +51,34 @@ enum AffectedLayer {
   BOTH
 }
 
+enum FindingType {
+  REPRODUCED_BUG
+  RUNTIME_RISK
+  CONFIG_GAP
+  CODE_QUALITY
+}
+
+enum ReproductionStatus {
+  REPRODUCED
+  INFERRED
+  NOT_REPRODUCED
+}
+
+enum EvidenceType {
+  EXECUTABLE_TEST
+  HTTP_RESPONSE
+  BROWSER_FLOW
+  SOURCE_ANALYSIS
+  MIXED
+}
+
+enum FindingSeverity {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
 enum JobEventType {
   STATUS
   INFRA
@@ -210,6 +238,18 @@ model Bug {
   sourceFile    String?
   confidence    BugConfidence
   affectedLayer AffectedLayer?
+  findingType   FindingType       @default(REPRODUCED_BUG)
+  reproductionStatus ReproductionStatus @default(REPRODUCED)
+  evidenceType  EvidenceType?
+  severity      FindingSeverity   @default(MEDIUM)
+  actualBehavior String?          @db.Text
+  expectedBehavior String?        @db.Text
+  reproductionSteps Json?
+  evidenceSummary String?         @db.Text
+  counterEvidence String?         @db.Text
+  fallbackObserved Boolean?
+  retryCount    Int               @default(0)
+  reproCount    Int               @default(1)
   fingerprint   String?
   suggestedFixes Json?
 
@@ -223,6 +263,8 @@ model Bug {
   @@index([jobId])
   @@index([confidence])
   @@index([affectedLayer, confidence, createdAt])
+  @@index([findingType, severity, createdAt])
+  @@index([reproductionStatus, evidenceType, createdAt])
   @@index([fingerprint])
 }
 

@@ -8,11 +8,67 @@ interface RecordBugOptions {
 }
 
 type BugAffectedLayer = "FRONTEND" | "BACKEND" | "BOTH";
+type DbFindingType = "REPRODUCED_BUG" | "RUNTIME_RISK" | "CONFIG_GAP" | "CODE_QUALITY";
+type DbReproductionStatus = "REPRODUCED" | "INFERRED" | "NOT_REPRODUCED";
+type DbEvidenceType = "EXECUTABLE_TEST" | "HTTP_RESPONSE" | "BROWSER_FLOW" | "SOURCE_ANALYSIS" | "MIXED";
+type DbFindingSeverity = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
+
+function toDbFindingType(value: "reproduced_bug" | "runtime_risk" | "config_gap" | "code_quality"): DbFindingType {
+    switch (value) {
+        case "reproduced_bug":
+            return "REPRODUCED_BUG";
+        case "runtime_risk":
+            return "RUNTIME_RISK";
+        case "config_gap":
+            return "CONFIG_GAP";
+        case "code_quality":
+            return "CODE_QUALITY";
+    }
+}
+
+function toDbReproductionStatus(value: "reproduced" | "inferred" | "not_reproduced"): DbReproductionStatus {
+    switch (value) {
+        case "reproduced":
+            return "REPRODUCED";
+        case "inferred":
+            return "INFERRED";
+        case "not_reproduced":
+            return "NOT_REPRODUCED";
+    }
+}
+
+function toDbEvidenceType(value: "executable_test" | "http_response" | "browser_flow" | "source_analysis" | "mixed"): DbEvidenceType {
+    switch (value) {
+        case "executable_test":
+            return "EXECUTABLE_TEST";
+        case "http_response":
+            return "HTTP_RESPONSE";
+        case "browser_flow":
+            return "BROWSER_FLOW";
+        case "source_analysis":
+            return "SOURCE_ANALYSIS";
+        case "mixed":
+            return "MIXED";
+    }
+}
+
+function toDbSeverity(value: "critical" | "high" | "medium" | "low"): DbFindingSeverity {
+    switch (value) {
+        case "critical":
+            return "CRITICAL";
+        case "high":
+            return "HIGH";
+        case "medium":
+            return "MEDIUM";
+        case "low":
+            return "LOW";
+    }
+}
 
 export const createRecordBugTool = ({ jobId }: RecordBugOptions) => {
     return createTool({
         name: "recordBug",
-        description: "Record a detected bug/error. Call this when a test confirms a bug exists.",
+        description: "Record a validated finding. Use reproduced_bug only for runtime-proven failures. Use runtime_risk, config_gap, or code_quality for inferred concerns.",
         parameters: z.object({
             testFile: z.string().describe("Test file that detected the bug"),
             testName: z.string().describe("Name of the test that caught it"),
@@ -20,6 +76,18 @@ export const createRecordBugTool = ({ jobId }: RecordBugOptions) => {
             sourceFile: z.string().describe("Source file containing the bug"),
             rootCause: z.string().describe("Explanation of why the bug occurs"),
             confidence: z.enum(["LOW", "MEDIUM", "HIGH"]).describe("Confidence level of the bug detection"),
+            findingType: z.enum(["reproduced_bug", "runtime_risk", "config_gap", "code_quality"]).describe("Classify whether this is a runtime-proven bug or a lower-confidence inferred finding"),
+            reproductionStatus: z.enum(["reproduced", "inferred", "not_reproduced"]).describe("Whether the issue was actually reproduced at runtime"),
+            evidenceType: z.enum(["executable_test", "http_response", "browser_flow", "source_analysis", "mixed"]).describe("Primary source of evidence for this finding"),
+            severity: z.enum(["critical", "high", "medium", "low"]).describe("User-impact severity, not code ugliness"),
+            actualBehavior: z.string().max(4000).nullable().describe("Observed runtime behavior"),
+            expectedBehavior: z.string().max(4000).nullable().describe("Expected correct behavior"),
+            reproductionSteps: z.array(z.string().max(500)).max(20).nullable().describe("Short reproduction steps or execution flow"),
+            evidenceSummary: z.string().max(4000).describe("Concise explanation of the concrete evidence backing the finding"),
+            counterEvidence: z.string().max(4000).nullable().describe("Fallbacks, retries, or other counterevidence that reduced certainty or severity"),
+            fallbackObserved: z.boolean().nullable().describe("Whether the app showed a fallback or graceful degradation path"),
+            retryCount: z.number().int().min(0).describe("How many reruns/retries were attempted while validating the finding"),
+            reproCount: z.number().int().min(0).describe("How many times the issue reproduced across attempts"),
             affectedLayer: z.enum(["frontend", "backend", "both"]).nullable().describe("Which application layer is impacted"),
             suggestedFixes: z
                 .array(
@@ -46,8 +114,12 @@ export const createRecordBugTool = ({ jobId }: RecordBugOptions) => {
                             : params.affectedLayer === "backend"
                                 ? "BACKEND"
                                 : params.affectedLayer === "both"
-                                    ? "BOTH"
+                                ? "BOTH"
                                     : null;
+                    const dbFindingType = toDbFindingType(params.findingType);
+                    const dbReproductionStatus = toDbReproductionStatus(params.reproductionStatus);
+                    const dbEvidenceType = toDbEvidenceType(params.evidenceType);
+                    const dbSeverity = toDbSeverity(params.severity);
 
                     // Basic logical validation
                     const invalidFix = params.suggestedFixes.find(
@@ -91,15 +163,45 @@ export const createRecordBugTool = ({ jobId }: RecordBugOptions) => {
                         return "Error recording bug: could not validate suggestedFixes size";
                     }
 
+                    if (params.findingType === "reproduced_bug") {
+                        if (params.reproductionStatus !== "reproduced") {
+                            return "Error recording bug: reproduced_bug findings must use reproductionStatus='reproduced'";
+                        }
+                        if (params.evidenceType === "source_analysis") {
+                            return "Error recording bug: reproduced_bug findings cannot use source_analysis as the sole evidence type";
+                        }
+                        if (!params.actualBehavior?.trim() || !params.expectedBehavior?.trim()) {
+                            return "Error recording bug: reproduced_bug findings require actualBehavior and expectedBehavior";
+                        }
+                        if (!params.reproductionSteps || params.reproductionSteps.length === 0) {
+                            return "Error recording bug: reproduced_bug findings require reproductionSteps";
+                        }
+                        if (params.reproCount < 1) {
+                            return "Error recording bug: reproduced_bug findings require reproCount >= 1";
+                        }
+                    }
+
                     const bugData = {
                         testFile: params.testFile,
                         testName: params.testName || undefined,
                         message: params.message,
                         sourceFile: params.sourceFile || undefined,
-                    rootCause: params.rootCause || undefined,
-                    affectedLayer: params.affectedLayer || undefined,
-                    suggestedFixes: params.suggestedFixes,
-                };
+                        rootCause: params.rootCause || undefined,
+                        affectedLayer: params.affectedLayer || undefined,
+                        findingType: params.findingType,
+                        reproductionStatus: params.reproductionStatus,
+                        evidenceType: params.evidenceType,
+                        severity: params.severity,
+                        actualBehavior: params.actualBehavior || undefined,
+                        expectedBehavior: params.expectedBehavior || undefined,
+                        reproductionSteps: params.reproductionSteps || undefined,
+                        evidenceSummary: params.evidenceSummary,
+                        counterEvidence: params.counterEvidence || undefined,
+                        fallbackObserved: params.fallbackObserved ?? undefined,
+                        retryCount: params.retryCount,
+                        reproCount: params.reproCount,
+                        suggestedFixes: params.suggestedFixes,
+                    };
 
                     // Update agent state
                     if (network) {
@@ -130,6 +232,18 @@ export const createRecordBugTool = ({ jobId }: RecordBugOptions) => {
                             testName: params.testName || null,
                             confidence: params.confidence,
                             affectedLayer: dbAffectedLayer,
+                            findingType: dbFindingType,
+                            reproductionStatus: dbReproductionStatus,
+                            evidenceType: dbEvidenceType,
+                            severity: dbSeverity,
+                            actualBehavior: params.actualBehavior || null,
+                            expectedBehavior: params.expectedBehavior || null,
+                            reproductionSteps: params.reproductionSteps || undefined,
+                            evidenceSummary: params.evidenceSummary,
+                            counterEvidence: params.counterEvidence || null,
+                            fallbackObserved: params.fallbackObserved ?? null,
+                            retryCount: params.retryCount,
+                            reproCount: params.reproCount,
                             fingerprint,
                             ...(params.suggestedFixes && params.suggestedFixes.length > 0
                                 ? { suggestedFixes: params.suggestedFixes }
@@ -153,6 +267,13 @@ export const createRecordBugTool = ({ jobId }: RecordBugOptions) => {
                                 testName: params.testName || null,
                                 confidence: params.confidence,
                                 affectedLayer: dbAffectedLayer,
+                                findingType: dbFindingType,
+                                reproductionStatus: dbReproductionStatus,
+                                evidenceType: dbEvidenceType,
+                                severity: dbSeverity,
+                                fallbackObserved: params.fallbackObserved ?? null,
+                                retryCount: params.retryCount,
+                                reproCount: params.reproCount,
                                 sourceFile: params.sourceFile || null,
                                 message: params.message,
                                 fingerprint,
