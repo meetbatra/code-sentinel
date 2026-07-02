@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { CodeBlock } from "@/components/code-block";
-import { CheckCircle2, XCircle, AlertCircle, ChevronDown, FileEdit, Sparkles, ChevronRight, Server, TerminalSquare, Maximize2, MousePointer2, Type, Navigation, Eye, Loader2, FileCode, Globe } from "lucide-react";
+import { CheckCircle2, XCircle, AlertCircle, ChevronDown, FileEdit, Sparkles, Server, TerminalSquare, Maximize2, MousePointer2, Type, Navigation, Eye, Loader2, FileCode, Globe } from "lucide-react";
 import { Navbar } from "@/components/navbar";
 import { Button } from "@/components/ui/button";
 
@@ -85,10 +85,54 @@ function formatAffectedLayer(value: string): string {
     return value.toUpperCase();
 }
 
+function formatFindingType(value: FindingType): string {
+    switch (value) {
+        case "REPRODUCED_BUG":
+            return "REPRODUCED BUG";
+        case "RUNTIME_RISK":
+            return "RUNTIME RISK";
+        case "CONFIG_GAP":
+            return "CONFIG GAP";
+        case "CODE_QUALITY":
+            return "CODE QUALITY";
+    }
+}
+
+function formatReproductionStatus(value: ReproductionStatus): string {
+    switch (value) {
+        case "REPRODUCED":
+            return "REPRODUCED";
+        case "INFERRED":
+            return "INFERRED";
+        case "NOT_REPRODUCED":
+            return "NOT REPRODUCED";
+    }
+}
+
+function formatEvidenceType(value: EvidenceType | null | undefined): string {
+    if (!value) return "UNSPECIFIED";
+    switch (value) {
+        case "EXECUTABLE_TEST":
+            return "EXECUTABLE TEST";
+        case "HTTP_RESPONSE":
+            return "HTTP RESPONSE";
+        case "BROWSER_FLOW":
+            return "BROWSER FLOW";
+        case "SOURCE_ANALYSIS":
+            return "SOURCE ANALYSIS";
+        case "MIXED":
+            return "MIXED";
+    }
+}
+
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 type TestStatus = "PASS" | "FAIL" | "ERROR";
 type BugConfidence = "LOW" | "MEDIUM" | "HIGH";
+type FindingType = "REPRODUCED_BUG" | "RUNTIME_RISK" | "CONFIG_GAP" | "CODE_QUALITY";
+type ReproductionStatus = "REPRODUCED" | "INFERRED" | "NOT_REPRODUCED";
+type EvidenceType = "EXECUTABLE_TEST" | "HTTP_RESPONSE" | "BROWSER_FLOW" | "SOURCE_ANALYSIS" | "MIXED";
+type FindingSeverity = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
 
 interface NetworkAssertion { url: string; method: string; expectedStatus: number; actualStatus: number; passed: boolean; }
 interface UiAssertion { selector: string; expected: string; actual: string; passed: boolean; }
@@ -105,6 +149,10 @@ interface SuggestedFix { type: "modify" | "new"; filePath: string; existingSnipp
 interface Bug {
     id: string; message: string; rootCause: string | null; sourceFile: string | null;
     confidence: BugConfidence; testFile: string | null; testName: string | null;
+    findingType: FindingType; reproductionStatus: ReproductionStatus; evidenceType: EvidenceType | null;
+    severity: FindingSeverity; actualBehavior?: string | null; expectedBehavior?: string | null;
+    reproductionSteps?: unknown; evidenceSummary?: string | null; counterEvidence?: string | null;
+    fallbackObserved?: boolean | null; retryCount?: number | null; reproCount?: number | null;
     suggestedFixes?: unknown; affectedLayer?: string | null;
 }
 
@@ -315,11 +363,11 @@ export default function TestResultsPage() {
     );
 
     if (isOptimisticallyCancelled) return <CancelledState backHref={backHref} />;
-    if (!job && (isLoading || isFetching)) return <LoadingState onBack={() => router.push(backHref)} onCancel={handleCancel} isCancelling={cancelRun.isPending} status="ANALYZING" />;
+    if (!job && (isLoading || isFetching)) return <LoadingState onCancel={handleCancel} isCancelling={cancelRun.isPending} status="ANALYZING" />;
     if (isError) {
         const code = (error as { data?: { code?: string } } | undefined)?.data?.code;
         if (code === "NOT_FOUND") return <NotFoundState />;
-        return <LoadingState onBack={() => router.push(backHref)} onCancel={handleCancel} isCancelling={cancelRun.isPending} status="ANALYZING" />;
+        return <LoadingState onCancel={handleCancel} isCancelling={cancelRun.isPending} status="ANALYZING" />;
     }
     if (!job) return <NotFoundState />;
 
@@ -327,7 +375,7 @@ export default function TestResultsPage() {
     const isCancelled = isOptimisticallyCancelled || (job.status === "FAILED" && (job.summary ?? "").toLowerCase().includes("canceled by user"));
 
     if (isCancelled) return <CancelledState backHref={backHref} />;
-    if (isActive) return <LoadingState onBack={() => router.push(backHref)} onCancel={handleCancel} isCancelling={cancelRun.isPending} status={job.status} />;
+    if (isActive) return <LoadingState onCancel={handleCancel} isCancelling={cancelRun.isPending} status={job.status} />;
 
     const discoveryInfo = (job.discoveryInfo || {}) as DiscoveryInfo;
     const serverInfo = (job.serverInfo || {}) as ServerInfo;
@@ -423,7 +471,7 @@ export default function TestResultsPage() {
                     {/* ROW 2: Bugs Detection Grid */}
                     <div className="space-y-4">
                         <h2 className="font-arcade text-3xl text-white uppercase flex items-center gap-4">
-                            BUGS_DETECTED 
+                            FINDINGS
                             <span className="text-[#ff7351] text-lg bg-[#ff7351]/10 px-3 py-1">{job.bugs.length}</span>
                         </h2>
                         <BugsPanel bugs={job.bugs as Bug[]} />
@@ -497,17 +545,37 @@ function BugsPanel({ bugs }: { bugs: Bug[] }) {
         return (
             <div className="flex flex-col items-center justify-center p-12 bg-[#1a1f2f]/30 border-2 border-dashed border-[#cafd00]/30 h-full">
                 <span className="font-arcade text-8xl text-[#cafd00] mb-6 drop-shadow-[0_0_15px_rgba(202,253,0,0.5)]">✓</span>
-                <p className="font-arcade text-2xl text-[#cafd00] uppercase tracking-widest">NO BUGS DETECTED</p>
-                <p className="text-[#717584] text-sm font-label uppercase tracking-widest mt-2">All tests passed cleanly.</p>
+                <p className="font-arcade text-2xl text-[#cafd00] uppercase tracking-widest">NO FINDINGS RECORDED</p>
+                <p className="text-[#717584] text-sm font-label uppercase tracking-widest mt-2">No reproduced bugs or risks were stored.</p>
             </div>
         );
     }
+    const findingTypeOrder: FindingType[] = ["REPRODUCED_BUG", "RUNTIME_RISK", "CONFIG_GAP", "CODE_QUALITY"];
+    const severityOrder: FindingSeverity[] = ["CRITICAL", "HIGH", "MEDIUM", "LOW"];
+    const confidenceOrder = { HIGH: 0, MEDIUM: 1, LOW: 2 } as const;
+    const counts = findingTypeOrder
+        .map((type) => ({ type, count: bugs.filter((bug) => bug.findingType === type).length }))
+        .filter((entry) => entry.count > 0);
+    const sortedBugs = [...bugs].sort((a, b) => {
+        const typeDelta = findingTypeOrder.indexOf(a.findingType) - findingTypeOrder.indexOf(b.findingType);
+        if (typeDelta !== 0) return typeDelta;
+        const severityDelta = severityOrder.indexOf(a.severity) - severityOrder.indexOf(b.severity);
+        if (severityDelta !== 0) return severityDelta;
+        return confidenceOrder[a.confidence] - confidenceOrder[b.confidence];
+    });
     return (
         <div className="space-y-6">
             <p className="text-[#717584] text-xs font-mono uppercase tracking-widest">
-                Sorted by threat level (Confidence)
+                Sorted by taxonomy, severity, then confidence
             </p>
-            {bugs.map((bug, i) => (
+            <div className="flex flex-wrap gap-2">
+                {counts.map(({ type, count }) => (
+                    <span key={type} className="px-3 py-1 text-[10px] font-label uppercase tracking-widest bg-[#141928] border border-[#1a1f2f] text-[#a7aabb]">
+                        {formatFindingType(type)}: <span className="text-[#f3ffca]">{count}</span>
+                    </span>
+                ))}
+            </div>
+            {sortedBugs.map((bug, i) => (
                 <BugCard key={bug.id} bug={bug} index={i + 1} />
             ))}
         </div>
@@ -517,6 +585,7 @@ function BugsPanel({ bugs }: { bugs: Bug[] }) {
 function BugCard({ bug, index }: { bug: Bug; index: number }) {
     const [isExpanded, setIsExpanded] = useState(false);
     const fixes = parseSuggestedFixes(bug.suggestedFixes);
+    const reproductionSteps = parseSteps(bug.reproductionSteps);
 
     const confidenceConfig = {
         HIGH: { border: "border-t-[#ff7351]", bg: "bg-[#ff7351]/5", badge: "bg-[#ff7351]/20 text-[#ff7351] border border-[#ff7351]/40" },
@@ -524,6 +593,12 @@ function BugCard({ bug, index }: { bug: Bug; index: number }) {
         LOW: { border: "border-t-[#717584]", bg: "bg-[#717584]/5", badge: "bg-[#717584]/20 text-[#a7aabb] border border-[#717584]/40" },
     };
     const c = confidenceConfig[bug.confidence] ?? confidenceConfig.LOW;
+    const severityConfig: Record<FindingSeverity, string> = {
+        CRITICAL: "bg-[#ff7351] text-black",
+        HIGH: "bg-[#fc8700] text-black",
+        MEDIUM: "bg-[#f3ffca] text-[#4a5e00]",
+        LOW: "bg-[#717584] text-black",
+    };
 
     return (
         <div
@@ -535,8 +610,20 @@ function BugCard({ bug, index }: { bug: Bug; index: number }) {
                 <div className="flex items-start justify-between gap-3 mb-6">
                     <div className="flex items-center gap-3 flex-wrap">
                         <span className="font-arcade text-2xl text-[#717584]">#{String(index).padStart(2, "0")}</span>
+                        <span className={`font-label text-xs uppercase tracking-widest px-3 py-1 ${severityConfig[bug.severity]}`}>
+                            {bug.severity}
+                        </span>
                         <span className={`font-label text-xs uppercase tracking-widest px-3 py-1 ${c.badge}`}>
                             {bug.confidence} CONFIDENCE
+                        </span>
+                        <span className="font-label text-[10px] uppercase tracking-wider px-3 py-1 bg-[#b024ff]/15 text-[#d28cff] border border-[#b024ff]/30">
+                            {formatFindingType(bug.findingType)}
+                        </span>
+                        <span className="font-label text-[10px] uppercase tracking-wider px-3 py-1 bg-[#1a1f2f] text-[#a7aabb] border border-[#444756]">
+                            {formatReproductionStatus(bug.reproductionStatus)}
+                        </span>
+                        <span className="font-label text-[10px] uppercase tracking-wider px-3 py-1 bg-[#00d4ff]/10 text-[#7be8ff] border border-[#00d4ff]/20">
+                            {formatEvidenceType(bug.evidenceType)}
                         </span>
                         {bug.affectedLayer && (
                             <span className="font-label text-[10px] uppercase tracking-wider px-3 py-1 bg-[#1a1f2f] text-[#a7aabb]">
@@ -557,6 +644,65 @@ function BugCard({ bug, index }: { bug: Bug; index: number }) {
                     <div className="bg-[#000000] border border-[#1a1f2f] p-4 text-sm font-body leading-relaxed mb-4">
                         <span className="text-[#fc8700] font-bold block mb-1 font-label uppercase tracking-widest text-[10px]">Root Cause_</span>
                         <span className="text-[#a7aabb]">{bug.rootCause}</span>
+                    </div>
+                )}
+
+                {bug.evidenceSummary && (
+                    <div className="bg-[#000000] border border-[#1a1f2f] p-4 text-sm font-body leading-relaxed mb-4">
+                        <span className="text-[#00d4ff] font-bold block mb-1 font-label uppercase tracking-widest text-[10px]">Evidence_</span>
+                        <span className="text-[#a7aabb]">{bug.evidenceSummary}</span>
+                    </div>
+                )}
+
+                {(bug.expectedBehavior || bug.actualBehavior) && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div className="bg-[#000000] border border-[#1a1f2f] p-4 text-sm font-body leading-relaxed">
+                            <span className="text-[#cafd00] font-bold block mb-1 font-label uppercase tracking-widest text-[10px]">Expected_</span>
+                            <span className="text-[#a7aabb]">{bug.expectedBehavior || "Not provided"}</span>
+                        </div>
+                        <div className="bg-[#000000] border border-[#1a1f2f] p-4 text-sm font-body leading-relaxed">
+                            <span className="text-[#ff7351] font-bold block mb-1 font-label uppercase tracking-widest text-[10px]">Actual_</span>
+                            <span className="text-[#a7aabb]">{bug.actualBehavior || "Not provided"}</span>
+                        </div>
+                    </div>
+                )}
+
+                {(reproductionSteps.length > 0 || bug.counterEvidence || bug.fallbackObserved !== null || bug.fallbackObserved !== undefined || bug.retryCount !== null || bug.retryCount !== undefined || bug.reproCount !== null || bug.reproCount !== undefined) && (
+                    <div className="bg-[#000000] border border-[#1a1f2f] p-4 text-sm font-body leading-relaxed mb-4 space-y-4">
+                        <div className="flex flex-wrap gap-4 text-[10px] uppercase tracking-widest font-label">
+                            {(bug.retryCount !== null && bug.retryCount !== undefined) && (
+                                <span className="px-2 py-1 bg-[#1a1f2f] text-[#a7aabb]">Retries: {bug.retryCount}</span>
+                            )}
+                            {(bug.reproCount !== null && bug.reproCount !== undefined) && (
+                                <span className="px-2 py-1 bg-[#1a1f2f] text-[#a7aabb]">Repros: {bug.reproCount}</span>
+                            )}
+                            {(bug.fallbackObserved !== null && bug.fallbackObserved !== undefined) && (
+                                <span className={`px-2 py-1 ${bug.fallbackObserved ? "bg-[#cafd00]/15 text-[#cafd00]" : "bg-[#ff7351]/15 text-[#ff7351]"}`}>
+                                    {bug.fallbackObserved ? "Fallback Observed" : "No Fallback Observed"}
+                                </span>
+                            )}
+                        </div>
+
+                        {reproductionSteps.length > 0 && (
+                            <div>
+                                <span className="text-[#f3ffca] font-bold block mb-2 font-label uppercase tracking-widest text-[10px]">Reproduction Steps_</span>
+                                <ol className="space-y-2">
+                                    {reproductionSteps.map((step, stepIndex) => (
+                                        <li key={`${bug.id}-repro-${stepIndex}`} className="flex gap-3 text-[#a7aabb]">
+                                            <span className="text-[#fc8700] font-mono shrink-0">{stepIndex + 1}.</span>
+                                            <span>{step}</span>
+                                        </li>
+                                    ))}
+                                </ol>
+                            </div>
+                        )}
+
+                        {bug.counterEvidence && (
+                            <div>
+                                <span className="text-[#717584] font-bold block mb-1 font-label uppercase tracking-widest text-[10px]">Counter Evidence_</span>
+                                <span className="text-[#a7aabb]">{bug.counterEvidence}</span>
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -1060,8 +1206,8 @@ const STATUS_LABELS: Record<string, string> = {
     TESTING: "BOSS_FIGHT_ACTIVE",
 };
 
-function LoadingState({ onBack, onCancel, isCancelling, status }: {
-    onBack: () => void; onCancel: () => void; isCancelling: boolean; status: string;
+function LoadingState({ onCancel, isCancelling, status }: {
+    onCancel: () => void; isCancelling: boolean; status: string;
 }) {
     const [msgIdx, setMsgIdx] = useState(0);
     const [fading, setFading] = useState(false);

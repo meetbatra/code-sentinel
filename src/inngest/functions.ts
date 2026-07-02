@@ -94,6 +94,18 @@ interface TestAgentState {
         message: string;
         sourceFile?: string;
         rootCause?: string;
+        findingType?: "reproduced_bug" | "runtime_risk" | "config_gap" | "code_quality";
+        reproductionStatus?: "reproduced" | "inferred" | "not_reproduced";
+        evidenceType?: "executable_test" | "http_response" | "browser_flow" | "source_analysis" | "mixed";
+        severity?: "critical" | "high" | "medium" | "low";
+        actualBehavior?: string;
+        expectedBehavior?: string;
+        reproductionSteps?: string[];
+        evidenceSummary?: string;
+        counterEvidence?: string;
+        fallbackObserved?: boolean;
+        retryCount?: number;
+        reproCount?: number;
         affectedLayer?: "frontend" | "backend" | "both";
         suggestedFixes?: Array<{
             type: "modify" | "new";
@@ -259,12 +271,9 @@ export const testAgentFunction = inngest.createFunction(
                 name: "test-agent",
                 system: TEST_AGENT_PROMPT(testingMode, testingScope),
                 model: openai({
-                    model: "claude-haiku-4.5",
-                    apiKey: "dummy",
-                    baseUrl: "http://localhost:4141",
-                    // defaultParameters: {
-                    //     max_tokens: 4096,
-                    // },
+                    model: "gpt-5.4-mini",
+                    apiKey: process.env.CODEX_PROXY_API_KEY,
+                    baseUrl: process.env.CODEX_PROXY_BASE_URL,
                 }),
                 tools: [
                     createTerminalTool({ sandboxId }),
@@ -374,6 +383,56 @@ export const testAgentFunction = inngest.createFunction(
                     testName: bug.testName,
                     sourceFile: bug.sourceFile,
                     rootCause: bug.rootCause,
+                    findingType:
+                        bug.findingType === "REPRODUCED_BUG"
+                            ? "reproduced_bug"
+                            : bug.findingType === "RUNTIME_RISK"
+                                ? "runtime_risk"
+                                : bug.findingType === "CONFIG_GAP"
+                                    ? "config_gap"
+                                    : bug.findingType === "CODE_QUALITY"
+                                        ? "code_quality"
+                                        : undefined,
+                    reproductionStatus:
+                        bug.reproductionStatus === "REPRODUCED"
+                            ? "reproduced"
+                            : bug.reproductionStatus === "INFERRED"
+                                ? "inferred"
+                                : bug.reproductionStatus === "NOT_REPRODUCED"
+                                    ? "not_reproduced"
+                                    : undefined,
+                    evidenceType:
+                        bug.evidenceType === "EXECUTABLE_TEST"
+                            ? "executable_test"
+                            : bug.evidenceType === "HTTP_RESPONSE"
+                                ? "http_response"
+                                : bug.evidenceType === "BROWSER_FLOW"
+                                    ? "browser_flow"
+                                    : bug.evidenceType === "SOURCE_ANALYSIS"
+                                        ? "source_analysis"
+                                        : bug.evidenceType === "MIXED"
+                                            ? "mixed"
+                                            : undefined,
+                    severity:
+                        bug.severity === "CRITICAL"
+                            ? "critical"
+                            : bug.severity === "HIGH"
+                                ? "high"
+                                : bug.severity === "MEDIUM"
+                                    ? "medium"
+                                    : bug.severity === "LOW"
+                                        ? "low"
+                                        : undefined,
+                    actualBehavior: bug.actualBehavior || undefined,
+                    expectedBehavior: bug.expectedBehavior || undefined,
+                    reproductionSteps: Array.isArray(bug.reproductionSteps)
+                        ? (bug.reproductionSteps as string[])
+                        : undefined,
+                    evidenceSummary: bug.evidenceSummary || undefined,
+                    counterEvidence: bug.counterEvidence || undefined,
+                    fallbackObserved: bug.fallbackObserved ?? undefined,
+                    retryCount: bug.retryCount,
+                    reproCount: bug.reproCount,
                     affectedLayer:
                         bug.affectedLayer === "FRONTEND"
                             ? "frontend"
