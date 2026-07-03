@@ -137,15 +137,6 @@ export const createUpdateDiscoveryTool = ({ jobId }: UpdateDiscoveryOptions) => 
                         data: { discoveryInfo: updatedDiscoveryInfo as Prisma.InputJsonValue },
                     });
 
-                    await prisma.jobRunEvent.create({
-                        data: {
-                            jobId,
-                            eventType: "DISCOVERY",
-                            payload: {
-                                updates: updatesList,
-                            },
-                        },
-                    });
 
                     return updatesList.length > 0
                         ? `Updated discovery info: ${updatesList.join(", ")}`

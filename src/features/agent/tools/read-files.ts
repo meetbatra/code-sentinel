@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createTool } from "@inngest/agent-kit";
 
-import { getSandbox } from "@/inngest/utils";
+import { getSandbox } from "@/features/agent/utils";
 
 interface ReadFilesToolOptions {
     sandboxId: string;

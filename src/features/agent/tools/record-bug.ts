@@ -258,28 +258,6 @@ export const createRecordBugTool = ({ jobId }: RecordBugOptions) => {
                         },
                     });
 
-                    await prisma.jobRunEvent.create({
-                        data: {
-                            jobId,
-                            eventType: "BUG",
-                            payload: {
-                                testFile: params.testFile,
-                                testName: params.testName || null,
-                                confidence: params.confidence,
-                                affectedLayer: dbAffectedLayer,
-                                findingType: dbFindingType,
-                                reproductionStatus: dbReproductionStatus,
-                                evidenceType: dbEvidenceType,
-                                severity: dbSeverity,
-                                fallbackObserved: params.fallbackObserved ?? null,
-                                retryCount: params.retryCount,
-                                reproCount: params.reproCount,
-                                sourceFile: params.sourceFile || null,
-                                message: params.message,
-                                fingerprint,
-                            },
-                        },
-                    });
 
                     return `Recorded bug: ${params.message}`;
                 }) || `Recorded bug: ${params.message}`;

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { baseProcedure, createTRPCRouter } from "../init";
-import type { TRPCContext } from "../init";
+import { baseProcedure, createTRPCRouter } from "@/trpc/init";
+import type { TRPCContext } from "@/trpc/init";
 
 async function requireUser(ctx: TRPCContext) {
   if (!ctx.userId) {
@@ -86,14 +86,11 @@ export const repositoriesRouter = createTRPCRouter({
       const user = await requireUser(ctx);
 
       const repository = await ctx.prisma.repository.findUnique({
-        where: { id: input.repositoryId },
+        where: { id: input.repositoryId, userId: user.id },
       });
 
       if (!repository) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Repository not found" });
-      }
-      if (repository.userId !== user.id) {
-        throw new TRPCError({ code: "FORBIDDEN" });
       }
 
       const runs = await ctx.prisma.job.findMany({

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { baseProcedure, createTRPCRouter } from "../init";
+import { baseProcedure, createTRPCRouter } from "@/trpc/init";
 import { TRPCError } from "@trpc/server";
 import { clerkClient } from "@clerk/nextjs/server";
 import { Octokit } from "octokit";
@@ -60,7 +60,12 @@ export const githubRouter = createTRPCRouter({
   }),
 
   getRepository: baseProcedure
-    .input(z.object({ owner: z.string(), name: z.string() }))
+    .input(
+      z.object({
+        owner: z.string().min(1),
+        name: z.string().min(1),
+      })
+    )
     .query(async ({ ctx, input }) => {
       if (!ctx.userId) {
         throw new TRPCError({ code: "UNAUTHORIZED" });

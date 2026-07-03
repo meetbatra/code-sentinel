@@ -1,7 +1,7 @@
 import {z} from "zod";
 import {createTool} from "@inngest/agent-kit";
 
-import {getSandbox} from "@/inngest/utils";
+import {getSandbox} from "@/features/agent/utils";
 
 interface terminalToolOptions {
     sandboxId: string;
@@ -35,8 +35,11 @@ export const createTerminalTool = ({
                     const buffers = { stdout: "", stderr: "" };
                     try {
                         const sandbox = await getSandbox(sandboxId);
+                        const fullCommand = command.trimStart().startsWith("cd repo")
+                            ? command
+                            : `cd repo && ${command}`;
                         const result = await sandbox.commands.run(
-                            `cd repo && ${command}`,
+                            fullCommand,
                             {
                                 onStdout: (d: string) => {
                                     buffers.stdout += d
