@@ -1,9 +1,9 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { Prisma } from "@/generated/prisma";
-import { assertEncryptionKeyConfigured, encryptApiKey } from "@/lib/crypto/api-keys";
-import { baseProcedure, createTRPCRouter } from "../init";
-import type { TRPCContext } from "../init";
+import { assertEncryptionKeyConfigured, encryptApiKey } from "@/features/integrations/lib/api-keys";
+import { baseProcedure, createTRPCRouter } from "@/trpc/init";
+import type { TRPCContext } from "@/trpc/init";
 
 async function requireUser(ctx: TRPCContext) {
   if (!ctx.userId) {

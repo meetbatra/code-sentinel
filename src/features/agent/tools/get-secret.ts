@@ -2,7 +2,7 @@ import type { PrismaClient } from "@/generated/prisma";
 import {
   assertEncryptionKeyConfigured,
   decryptApiKey,
-} from "@/lib/crypto/api-keys";
+} from "@/features/integrations/lib/api-keys";
 import type { Prisma } from "@/generated/prisma";
 
 type GetSecretParams = {

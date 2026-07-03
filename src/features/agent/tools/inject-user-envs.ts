@@ -1,9 +1,9 @@
 import { createTool } from "@inngest/agent-kit";
 import { z } from "zod";
 import type { PrismaClient } from "@/generated/prisma";
-import { getSandbox } from "@/inngest/utils";
-import { getSecret } from "@/inngest/tools/get-secret";
-import { mergeEnvEntries } from "@/inngest/lib/env-file";
+import { getSandbox } from "@/features/agent/utils";
+import { getSecret } from "@/features/agent/tools/get-secret";
+import { mergeEnvEntries } from "@/features/agent/lib/env-file";
 
 type CreateInjectUserEnvsToolOptions = {
   sandboxId: string;

@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { createTool } from "@inngest/agent-kit";
 
-import { getSandbox } from "@/inngest/utils";
-import { mergeEnvEntries } from "@/inngest/lib/env-file";
+import { getSandbox } from "@/features/agent/utils";
+import { mergeEnvEntries } from "@/features/agent/lib/env-file";
 
 interface CreateMongoDbToolOptions {
     sandboxId: string;

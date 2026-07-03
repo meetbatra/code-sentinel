@@ -1,8 +1,7 @@
 import { serve } from "inngest/next";
-import { inngest } from "@/inngest/client";
-import {testAgentFunction} from "@/inngest/functions";
+import { inngest } from "@/features/agent/client";
+import { testAgentFunction } from "@/features/agent/functions";
 
-// Create an API that serves zero functions
 export const { GET, POST, PUT } = serve({
     client: inngest,
     functions: [

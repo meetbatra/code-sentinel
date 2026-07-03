@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { baseProcedure, createTRPCRouter } from "../init";
-import { inngest } from "@/inngest/client";
-import type { TRPCContext } from "../init";
+import { baseProcedure, createTRPCRouter } from "@/trpc/init";
+import { inngest } from "@/features/agent/client";
+import type { TRPCContext } from "@/trpc/init";
 import { Prisma } from "@/generated/prisma";
 
 const activeStatuses = ["PENDING", "ANALYZING", "SETTING_UP", "TESTING"] as const;
@@ -45,10 +45,6 @@ export const jobsRouter = createTRPCRouter({
             },
             bugs: {
               orderBy: { createdAt: "desc" },
-            },
-            events: {
-              orderBy: { createdAt: "asc" },
-              take: 200,
             },
           },
         });
@@ -191,20 +187,17 @@ export const jobsRouter = createTRPCRouter({
 
       const [baseRun, compareRun] = await Promise.all([
         ctx.prisma.job.findUnique({
-          where: { id: input.baseRunId },
+          where: { id: input.baseRunId, userId: user.id },
           include: { bugs: true, repository: true, tests: true },
         }),
         ctx.prisma.job.findUnique({
-          where: { id: input.compareRunId },
+          where: { id: input.compareRunId, userId: user.id },
           include: { bugs: true, repository: true, tests: true },
         }),
       ]);
 
       if (!baseRun || !compareRun) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Run not found" });
-      }
-      if (baseRun.userId !== user.id || compareRun.userId !== user.id) {
-        throw new TRPCError({ code: "FORBIDDEN" });
       }
       if (baseRun.repositoryId !== compareRun.repositoryId) {
         throw new TRPCError({
@@ -250,15 +243,12 @@ export const jobsRouter = createTRPCRouter({
       const user = await requireUser(ctx);
 
       const existingJob = await ctx.prisma.job.findUnique({
-        where: { id: input.jobId },
+        where: { id: input.jobId, userId: user.id },
         include: { repository: true },
       });
 
       if (!existingJob) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Job not found" });
-      }
-      if (existingJob.userId !== user.id) {
-        throw new TRPCError({ code: "FORBIDDEN" });
       }
 
       const job = await ctx.prisma.job.create({
@@ -299,14 +289,11 @@ export const jobsRouter = createTRPCRouter({
       const user = await requireUser(ctx);
 
       const job = await ctx.prisma.job.findUnique({
-        where: { id: input.jobId },
+        where: { id: input.jobId, userId: user.id },
       });
 
       if (!job) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Job not found" });
-      }
-      if (job.userId !== user.id) {
-        throw new TRPCError({ code: "FORBIDDEN" });
       }
       if (!activeStatuses.includes(job.status as (typeof activeStatuses)[number])) {
         return { success: false, message: "Job is not running" };
@@ -339,10 +326,10 @@ export const jobsRouter = createTRPCRouter({
       const user = await requireUser(ctx);
 
       const job = await ctx.prisma.job.findUnique({
-        where: { id: input.id },
+        where: { id: input.id, userId: user.id },
       });
 
-      if (!job || job.userId !== user.id) {
+      if (!job) {
         throw new TRPCError({ code: "FORBIDDEN" });
       }
 

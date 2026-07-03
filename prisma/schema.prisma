@@ -79,17 +79,6 @@ enum FindingSeverity {
   LOW
 }
 
-enum JobEventType {
-  STATUS
-  INFRA
-  DISCOVERY
-  SERVER
-  TEST_RESULT
-  BUG
-  SUMMARY
-  ERROR
-}
-
 model User {
   id      String  @id @default(uuid())
   clerkId String  @unique
@@ -187,7 +176,6 @@ model Job {
 
   tests Test[]
   bugs  Bug[]
-  events JobRunEvent[]
 
   @@index([userId])
   @@index([repositoryId])
@@ -266,19 +254,6 @@ model Bug {
   @@index([findingType, severity, createdAt])
   @@index([reproductionStatus, evidenceType, createdAt])
   @@index([fingerprint])
-}
-
-model JobRunEvent {
-  id        String      @id @default(uuid())
-  jobId     String
-  eventType JobEventType
-  payload   Json?
-  createdAt DateTime    @default(now())
-
-  job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
-
-  @@index([jobId, createdAt])
-  @@index([eventType, createdAt])
 }
 
 model Usage {

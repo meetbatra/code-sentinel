@@ -1,4 +1,4 @@
-import { inngest } from "./client";
+import { inngest } from "@/features/agent/client";
 import {
     createAgent,
     createState,
@@ -7,26 +7,26 @@ import {
     anthropic,
 } from "@inngest/agent-kit";
 import { Sandbox } from "@e2b/code-interpreter";
-import { SANDBOX_TIMEOUT, TestingMode, TestingScope } from "@/inngest/types";
-import { getSandbox } from "@/inngest/utils";
+import { SANDBOX_TIMEOUT, TestingMode, TestingScope } from "@/features/agent/types";
+import { getSandbox } from "@/features/agent/utils";
 import { lastAssistantTextMessageContent } from "@/lib/utils";
-import { TEST_AGENT_PROMPT } from "@/prompt";
-import { createTerminalTool } from "@/inngest/tools/terminal";
-import { createOrUpdateFilesTool } from "@/inngest/tools/create-or-update-files";
-import { createReadFilesTool } from "@/inngest/tools/read-files";
-import { createEnvTool } from "@/inngest/tools/create-env";
-import { createMongoDbTool } from "@/inngest/tools/create-mongodb";
-import { createGetServerUrlTool } from "@/inngest/tools/get-server-url";
-import { createUpdateDiscoveryTool } from "@/inngest/tools/update-discovery";
-import { createUpdateServerInfoTool } from "@/inngest/tools/update-server-info";
-import { createRecordTestResultTool } from "@/inngest/tools/record-test-result";
-import { createRecordBugTool } from "@/inngest/tools/record-bug";
-import { createBrowserActionTool } from "@/inngest/tools/browser-action";
-import { createListUserEnvsTool } from "@/inngest/tools/list-user-envs-tool";
-import { createInjectUserEnvsTool } from "@/inngest/tools/inject-user-envs";
+import { TEST_AGENT_PROMPT } from "@/features/agent/prompt";
+import { createTerminalTool } from "@/features/agent/tools/terminal";
+import { createOrUpdateFilesTool } from "@/features/agent/tools/create-or-update-files";
+import { createReadFilesTool } from "@/features/agent/tools/read-files";
+import { createEnvTool } from "@/features/agent/tools/create-env";
+import { createMongoDbTool } from "@/features/agent/tools/create-mongodb";
+import { createGetServerUrlTool } from "@/features/agent/tools/get-server-url";
+import { createUpdateDiscoveryTool } from "@/features/agent/tools/update-discovery";
+import { createUpdateServerInfoTool } from "@/features/agent/tools/update-server-info";
+import { createRecordTestResultTool } from "@/features/agent/tools/record-test-result";
+import { createRecordBugTool } from "@/features/agent/tools/record-bug";
+import { createBrowserActionTool } from "@/features/agent/tools/browser-action";
+import { createListUserEnvsTool } from "@/features/agent/tools/list-user-envs-tool";
+import { createInjectUserEnvsTool } from "@/features/agent/tools/inject-user-envs";
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@/generated/prisma";
-import { listUserEnvs } from "@/inngest/lib/list-user-envs";
+import { listUserEnvs } from "@/features/agent/lib/list-user-envs";
 
 interface TestAgentState {
     jobId: string;
@@ -142,23 +142,6 @@ export const testAgentFunction = inngest.createFunction(
         const setupStartedMs = Date.now();
         let testStartedMs = 0;
 
-        const logEvent = async (
-            eventType: "STATUS" | "INFRA" | "DISCOVERY" | "SERVER" | "TEST_RESULT" | "BUG" | "SUMMARY" | "ERROR",
-            payload?: Record<string, unknown>
-        ) => {
-            try {
-                await prisma.jobRunEvent.create({
-                    data: {
-                        jobId,
-                        eventType,
-                        payload: (payload || {}) as Prisma.InputJsonValue,
-                    },
-                });
-            } catch {
-                // Best-effort logging only.
-            }
-        };
-
         try {
             // Update status: ANALYZING
             await step.run("update-status-analyzing", async () => {
@@ -170,7 +153,6 @@ export const testAgentFunction = inngest.createFunction(
                     },
                 });
             });
-            await logEvent("STATUS", { status: "ANALYZING" });
 
             /* ---------------- Sandbox ---------------- */
 
@@ -192,7 +174,6 @@ export const testAgentFunction = inngest.createFunction(
 
                 return sandbox.sandboxId;
             });
-            await logEvent("INFRA", { action: "sandbox_created", sandboxId });
 
             await step.run("clone-repo", async () => {
                 const sandbox = await getSandbox(sandboxId);
@@ -201,7 +182,6 @@ export const testAgentFunction = inngest.createFunction(
             git clone --depth=1 ${repoUrl} repo
           `);
             });
-            await logEvent("INFRA", { action: "repo_cloned", repoUrl });
 
             // Update status: SETTING_UP
             await step.run("update-status-setup", async () => {
@@ -210,7 +190,6 @@ export const testAgentFunction = inngest.createFunction(
                     data: { status: "SETTING_UP" },
                 });
             });
-            await logEvent("STATUS", { status: "SETTING_UP" });
 
             const userVault = await step.run("load-user-vault-metadata", async () => {
                 const vault = await listUserEnvs({ userId, db: prisma });
@@ -235,10 +214,6 @@ export const testAgentFunction = inngest.createFunction(
 
                 return vault;
             });
-            await logEvent("DISCOVERY", {
-                action: "user_vault_loaded",
-                availableKeys: userVault.available,
-            });
 
             /* ---------------- State ---------------- */
 
@@ -261,7 +236,6 @@ export const testAgentFunction = inngest.createFunction(
                     data: { status: "TESTING" },
                 });
             });
-            await logEvent("STATUS", { status: "TESTING" });
             const setupDurationMs = Date.now() - setupStartedMs;
             testStartedMs = Date.now();
 
@@ -307,7 +281,6 @@ export const testAgentFunction = inngest.createFunction(
                                 where: { id: jobId },
                                 data: { summary: text },
                             });
-                            await logEvent("SUMMARY", { source: "agent", captured: true });
                         }
 
                         return result;
@@ -462,14 +435,6 @@ export const testAgentFunction = inngest.createFunction(
                             totalBugs: job.bugs.length,
                         },
                     });
-                    await logEvent("STATUS", { status: "COMPLETED" });
-                    await logEvent("SUMMARY", {
-                        totalTests: job.tests.length,
-                        passedTests: job.tests.filter((t) => t.status === "PASS").length,
-                        failedTests: job.tests.filter((t) => t.status === "FAIL").length,
-                        errorTests: job.tests.filter((t) => t.status === "ERROR").length,
-                        totalBugs: job.bugs.length,
-                    });
                 }
 
                 return {
@@ -496,9 +461,6 @@ export const testAgentFunction = inngest.createFunction(
                 detectedErrors: finalData.detectedErrors,
             };
         } catch (error) {
-            await logEvent("ERROR", {
-                message: error instanceof Error ? error.message : "Unknown error",
-            });
             const existing = await prisma.job.findUnique({
                 where: { id: jobId },
                 select: { status: true, summary: true },
@@ -517,7 +479,6 @@ export const testAgentFunction = inngest.createFunction(
                         totalDurationMs: Date.now() - runStartedMs,
                     },
                 });
-                await logEvent("STATUS", { status: "FAILED" });
             }
 
             throw error;

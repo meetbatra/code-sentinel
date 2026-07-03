@@ -1,10 +1,10 @@
 import { z } from "zod";
-import { baseProcedure, createTRPCRouter } from "../init";
-import { inngest } from "@/inngest/client";
-import { jobsRouter } from "./jobs";
-import { githubRouter } from "./github";
-import { repositoriesRouter } from "./repositories";
-import { integrationsRouter } from "./integrations";
+import { baseProcedure, createTRPCRouter } from "@/trpc/init";
+import { inngest } from "@/features/agent/client";
+import { jobsRouter } from "@/features/jobs/router";
+import { githubRouter } from "@/features/github/router";
+import { repositoriesRouter } from "@/features/repositories/router";
+import { integrationsRouter } from "@/features/integrations/router";
 import { TRPCError } from "@trpc/server";
 
 export const appRouter = createTRPCRouter({

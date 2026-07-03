@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { createTool } from "@inngest/agent-kit";
-import { getSandbox } from "@/inngest/utils";
+import { getSandbox } from "@/features/agent/utils";
 
 interface GetServerUrlToolOptions {
     sandboxId: string;

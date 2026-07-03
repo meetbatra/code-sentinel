@@ -116,15 +116,6 @@ export const createUpdateServerInfoTool = ({ jobId }: UpdateServerInfoOptions) =
                         data: { serverInfo: updatedServerInfo as Prisma.InputJsonValue },
                     });
 
-                    await prisma.jobRunEvent.create({
-                        data: {
-                            jobId,
-                            eventType: "SERVER",
-                            payload: {
-                                updates: updatesList,
-                            },
-                        },
-                    });
 
                     return updatesList.length > 0
                         ? `Updated server info: ${updatesList.join(", ")}`

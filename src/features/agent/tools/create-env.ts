@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { createTool } from "@inngest/agent-kit";
-import { getSandbox } from "@/inngest/utils";
+import { getSandbox } from "@/features/agent/utils";
 import path from "path";
 
 interface CreateEnvToolOptions {
@@ -13,7 +13,10 @@ const POST_STEP_ENV_VAR_PATTERN =
 const paramsSchema = z.object({
     envVars: z.array(
         z.object({
-            key: z.string(),
+            key: z
+                .string()
+                .min(1)
+                .regex(/^[a-zA-Z_][a-zA-Z0-9_]*$/, "Invalid environment variable key format"),
             value: z.string(),
         })
     ),

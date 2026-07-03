@@ -3,7 +3,7 @@ import { createTool } from "@inngest/agent-kit";
 import { prisma } from "@/lib/prisma";
 import { createHash } from "crypto";
 import path from "path";
-import { getSandbox } from "@/inngest/utils";
+import { getSandbox } from "@/features/agent/utils";
 
 interface RecordTestResultOptions {
     jobId: string;
@@ -245,20 +245,6 @@ export const createRecordTestResultTool = ({ jobId, sandboxId }: RecordTestResul
                         },
                     });
 
-                    await prisma.jobRunEvent.create({
-                        data: {
-                            jobId,
-                            eventType: "TEST_RESULT",
-                            payload: {
-                                testFile: params.testFile,
-                                testName: params.testName,
-                                status: normalizedStatus,
-                                type: dbTestLayer,
-                                featureName: params.featureName || null,
-                                hasScreenshot: Boolean(screenshotUrl),
-                            },
-                        },
-                    });
 
                     if (warnings.length > 0) {
                         return `Recorded ${normalizedStatus} result for ${params.testFile} with warnings: ${warnings.join(" | ")}`;
