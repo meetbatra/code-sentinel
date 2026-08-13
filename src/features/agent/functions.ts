@@ -27,11 +27,13 @@ import { createInjectUserEnvsTool } from "@/features/agent/tools/inject-user-env
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@/generated/prisma";
 import { listUserEnvs } from "@/features/agent/lib/list-user-envs";
+import { normalizeSuggestedFixes } from "@/lib/agent-output";
 
 interface TestAgentState {
     jobId: string;
     summary: string;
     testFiles: Record<string, string>;
+    recordedTestFiles: string[];
     discoveryInfo: {
         entryPoint?: string;
         framework?: string;
@@ -221,6 +223,7 @@ export const testAgentFunction = inngest.createFunction(
                 jobId,
                 summary: "",
                 testFiles: {},
+                recordedTestFiles: [],
                 discoveryInfo: {
                     userVault,
                 },
@@ -245,7 +248,7 @@ export const testAgentFunction = inngest.createFunction(
                 name: "test-agent",
                 system: TEST_AGENT_PROMPT(testingMode, testingScope),
                 model: openai({
-                    model: "gpt-5.4-mini",
+                    model: "gpt-5.6-luna",
                     apiKey: process.env.CODEX_PROXY_API_KEY,
                     baseUrl: process.env.CODEX_PROXY_BASE_URL,
                 }),
@@ -414,7 +417,14 @@ export const testAgentFunction = inngest.createFunction(
                                 : bug.affectedLayer === "BOTH"
                                     ? "both"
                                     : undefined,
-                    suggestedFixes: bug.suggestedFixes as TestAgentState["detectedErrors"][number]["suggestedFixes"],
+                    suggestedFixes: Array.isArray(bug.suggestedFixes)
+                        ? normalizeSuggestedFixes(bug.suggestedFixes as Array<{
+                            type: "modify" | "new";
+                            filePath: string;
+                            existingSnippet?: string;
+                            updatedSnippet: string;
+                        }>)
+                        : undefined,
                 }));
 
                 // Avoid overriding a user cancellation if it happened mid-run.
@@ -429,9 +439,9 @@ export const testAgentFunction = inngest.createFunction(
                             testDurationMs,
                             totalDurationMs: Date.now() - runStartedMs,
                             totalTests: job.tests.length,
-                            passedTests: job.tests.filter((t) => t.status === "PASS").length,
-                            failedTests: job.tests.filter((t) => t.status === "FAIL").length,
-                            errorTests: job.tests.filter((t) => t.status === "ERROR").length,
+                            passedTests: job.tests.filter((test) => test.status === "PASS").length,
+                            failedTests: job.tests.filter((test) => test.status === "FAIL").length,
+                            errorTests: job.tests.filter((test) => test.status === "ERROR").length,
                             totalBugs: job.bugs.length,
                         },
                     });

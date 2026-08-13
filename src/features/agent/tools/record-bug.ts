@@ -2,6 +2,7 @@ import { z } from "zod";
 import { createTool } from "@inngest/agent-kit";
 import { prisma } from "@/lib/prisma";
 import { createHash } from "crypto";
+import { normalizeSuggestedFixes } from "@/lib/agent-output";
 
 interface RecordBugOptions {
     jobId: string;
@@ -94,8 +95,8 @@ export const createRecordBugTool = ({ jobId }: RecordBugOptions) => {
                     z.object({
                         type: z.enum(["modify", "new"]).describe("Whether to modify an existing file or create a new file"),
                         filePath: z.string().min(1).max(400).describe("Path to the file to modify or create"),
-                        existingSnippet: z.string().max(20000).describe("Exact snippet from the existing file to be replaced (required for modify)"),
-                        updatedSnippet: z.string().max(20000).describe("Updated snippet or full file content (for new files)"),
+                        existingSnippet: z.string().max(20000).describe("Exact snippet from the existing file to be replaced. Required for modify fixes."),
+                        updatedSnippet: z.string().max(20000).describe("Complete, directly applicable replacement code. For new files, provide the complete file contents. Do not provide comments, placeholders, ellipses, or prose instead of implementation."),
                     })
                 )
                 .max(8)
@@ -120,9 +121,10 @@ export const createRecordBugTool = ({ jobId }: RecordBugOptions) => {
                     const dbReproductionStatus = toDbReproductionStatus(params.reproductionStatus);
                     const dbEvidenceType = toDbEvidenceType(params.evidenceType);
                     const dbSeverity = toDbSeverity(params.severity);
+                    const suggestedFixes = normalizeSuggestedFixes(params.suggestedFixes);
 
                     // Basic logical validation
-                    const invalidFix = params.suggestedFixes.find(
+                    const invalidFix = suggestedFixes.find(
                         (fix) => fix.type === "modify" && !fix.existingSnippet.trim()
                     );
                     if (invalidFix) {
@@ -131,7 +133,7 @@ export const createRecordBugTool = ({ jobId }: RecordBugOptions) => {
 
                     // Size guard: per-item and total payload checks
                     try {
-                        const fixes = params.suggestedFixes || [];
+                        const fixes = suggestedFixes;
                         // Per-item checks: modify -> small snippets, new -> allow larger full-file but capped
                         const MAX_MODIFY_SNIPPET = 20000; // 20 KB
                         const MAX_NEW_FILE = 1024 * 1024; // 1 MB per new file
@@ -200,7 +202,7 @@ export const createRecordBugTool = ({ jobId }: RecordBugOptions) => {
                         fallbackObserved: params.fallbackObserved ?? undefined,
                         retryCount: params.retryCount,
                         reproCount: params.reproCount,
-                        suggestedFixes: params.suggestedFixes,
+                        suggestedFixes,
                     };
 
                     // Update agent state
@@ -245,8 +247,8 @@ export const createRecordBugTool = ({ jobId }: RecordBugOptions) => {
                             retryCount: params.retryCount,
                             reproCount: params.reproCount,
                             fingerprint,
-                            ...(params.suggestedFixes && params.suggestedFixes.length > 0
-                                ? { suggestedFixes: params.suggestedFixes }
+                            ...(suggestedFixes.length > 0
+                                ? { suggestedFixes }
                                 : {}),
                         },
                     });

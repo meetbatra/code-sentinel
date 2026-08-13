@@ -11,7 +11,7 @@ interface BrowserActionToolOptions {
 export const createBrowserActionTool = ({ sandboxId }: BrowserActionToolOptions) => {
     return createTool({
         name: "browserAction",
-        description: "Control the Chromium browser running inside the sandbox to test frontends",
+        description: "Control the headless Chromium browser running inside the sandbox to test frontend UI flows. Use this for mandatory browser coverage in full-stack projects.",
         parameters: z.object({
             action: z.enum([
                 "navigate",

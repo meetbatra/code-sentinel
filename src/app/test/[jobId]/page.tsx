@@ -10,17 +10,19 @@ import { CodeBlock } from "@/components/code-block";
 import { CheckCircle2, XCircle, AlertCircle, ChevronDown, FileEdit, Sparkles, Server, TerminalSquare, Maximize2, MousePointer2, Type, Navigation, Eye, Loader2, FileCode, Globe } from "lucide-react";
 import { Navbar } from "@/components/navbar";
 import { Button } from "@/components/ui/button";
+import { decodeEscapedLineBreaks, normalizeSuggestedFixes } from "@/lib/agent-output";
 
 // ─── Type guards ────────────────────────────────────────────────────────────
 
 function parseSuggestedFixes(fixes: unknown): SuggestedFix[] {
     if (!fixes || !Array.isArray(fixes)) return [];
-    return fixes.filter((fix): fix is SuggestedFix =>
+    const validFixes = fixes.filter((fix): fix is SuggestedFix =>
         typeof fix === "object" && fix !== null &&
         "type" in fix && "filePath" in fix && "updatedSnippet" in fix &&
         (fix.type === "modify" || fix.type === "new") &&
         typeof fix.filePath === "string" && typeof fix.updatedSnippet === "string"
     );
+    return normalizeSuggestedFixes(validFixes);
 }
 
 function parseSteps(value: unknown): string[] {
@@ -200,10 +202,9 @@ function TerminalSummaryDisplay({ summary }: { summary: string }) {
         };
     }, [isDialogOpen]);
 
-    const cleanedSummary = summary
+    const cleanedSummary = decodeEscapedLineBreaks(summary)
         .replace(/<task_summary>/gi, "")
         .replace(/<\/task_summary>/gi, "")
-        .replace(/\\n/g, " ")
         .trim();
 
     return (
@@ -211,7 +212,7 @@ function TerminalSummaryDisplay({ summary }: { summary: string }) {
             <div className="relative">
                 <p
                     ref={summaryRef}
-                    className={`text-[#a7aabb] text-sm leading-relaxed font-body ${
+                    className={`text-[#a7aabb] text-sm leading-relaxed font-body whitespace-pre-wrap ${
                         isTruncated ? "line-clamp-6" : ""
                     }`}
                 >
@@ -363,11 +364,11 @@ export default function TestResultsPage() {
     );
 
     if (isOptimisticallyCancelled) return <CancelledState backHref={backHref} />;
-    if (!job && (isLoading || isFetching)) return <LoadingState onCancel={handleCancel} isCancelling={cancelRun.isPending} status="ANALYZING" />;
+    if (!job && (isLoading || isFetching)) return <DataLoadingState />;
     if (isError) {
         const code = (error as { data?: { code?: string } } | undefined)?.data?.code;
         if (code === "NOT_FOUND") return <NotFoundState />;
-        return <LoadingState onCancel={handleCancel} isCancelling={cancelRun.isPending} status="ANALYZING" />;
+        return <DataErrorState backHref={backHref} />;
     }
     if (!job) return <NotFoundState />;
 
@@ -1206,6 +1207,20 @@ const STATUS_LABELS: Record<string, string> = {
     TESTING: "BOSS_FIGHT_ACTIVE",
 };
 
+function DataLoadingState() {
+    return (
+        <div className="min-h-[100dvh] bg-[#000000] flex flex-col relative overflow-hidden">
+            <Navbar />
+            <div className="flex-1 flex items-center justify-center px-6 relative z-10">
+                <Loader2
+                    className="h-12 w-12 animate-spin text-[#fc8700]"
+                    aria-label="Loading test results"
+                />
+            </div>
+        </div>
+    );
+}
+
 function LoadingState({ onCancel, isCancelling, status }: {
     onCancel: () => void; isCancelling: boolean; status: string;
 }) {
@@ -1289,6 +1304,26 @@ function CancelledState({ backHref }: { backHref: string }) {
                 <a
                     href={backHref}
                     className="inline-flex items-center gap-3 px-8 py-4 bg-white text-black font-arcade text-xl uppercase tracking-widest hover:bg-[#ff7351] transition-colors"
+                >
+                    [ RETURN TO BASE ]
+                </a>
+            </div>
+        </div>
+    );
+}
+
+function DataErrorState({ backHref }: { backHref: string }) {
+    return (
+        <div className="min-h-screen bg-[#000000] flex items-center justify-center px-6 relative">
+            <Navbar />
+            <div className="text-center z-10 p-12 bg-[#0e0e0e] border border-[#ff7351]">
+                <p className="font-arcade text-3xl text-[#ff7351] uppercase mb-4">LOAD_ERROR</p>
+                <p className="text-[#a7aabb] text-xs font-label uppercase tracking-widest mb-8">
+                    Unable to load this test run.
+                </p>
+                <a
+                    href={backHref}
+                    className="inline-flex items-center px-6 py-3 bg-white text-black font-arcade text-sm uppercase tracking-widest hover:bg-[#ff7351] transition-colors"
                 >
                     [ RETURN TO BASE ]
                 </a>

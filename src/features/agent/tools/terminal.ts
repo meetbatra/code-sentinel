@@ -16,19 +16,25 @@ export const createTerminalTool = ({
 }: terminalToolOptions) => {
     return createTool({
         name: "terminal",
-        description: "Run shell commands inside the repository",
+        description: "Run shell commands inside the repository. Test files with committed results are immutable and cannot be run again.",
         parameters: z.object({
             command: z
                 .string()
                 .describe("Command to run in the terminal"),
         }),
-        handler: async (params, { step: toolStep }) => {
+        handler: async (params, { step: toolStep, network }) => {
             const parsed = paramsSchema.safeParse(params);
             if(!parsed.success){
                 return `Error: ${parsed.error.issues[0].message}`;
             }
 
             const { command } = parsed.data;
+
+            const recordedTestFiles = network?.state.data.recordedTestFiles || [];
+            const blockedFile = recordedTestFiles.find((filePath: string) => command.includes(filePath));
+            if (blockedFile) {
+                return `Error: ${blockedFile} already has a recorded result and is immutable. Do not run or update this test file again.`;
+            }
 
             try {
                 return await toolStep?.run("terminal", async () => {

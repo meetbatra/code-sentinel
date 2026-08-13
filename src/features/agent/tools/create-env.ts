@@ -26,7 +26,7 @@ const paramsSchema = z.object({
 export const createEnvTool = ({ sandboxId }: CreateEnvToolOptions) => {
     return createTool({
         name: "createEnv",
-        description: "Create or overwrite a .env file at the specified path (default: repo root). This is the reset step and must run before additive tools like createMongoDb or injectUserEnvs.",
+        description: "Create or overwrite a .env file at the specified path (default: repo root). Discover the target application's directory first and use one env file for the backend and one for the frontend when they are separate applications. Run this reset step before additive tools like createMongoDb or injectUserEnvs.",
         parameters: paramsSchema,
         handler: async (params, { step: toolStep }) => {
             const parsed = paramsSchema.safeParse(params);
