@@ -10,6 +10,7 @@ import "prismjs/components/prism-json";
 import "prismjs/components/prism-bash";
 import { Button } from "@/components/ui/button";
 import { Check, Copy, Download } from "lucide-react";
+import { decodeEscapedLineBreaks } from "@/lib/agent-output";
 
 interface CodeBlockProps {
     code: string;
@@ -30,15 +31,16 @@ export function CodeBlock({
 }: CodeBlockProps) {
     const codeRef = useRef<HTMLElement>(null);
     const [copied, setCopied] = useState(false);
+    const displayCode = decodeEscapedLineBreaks(code);
 
     useEffect(() => {
         if (codeRef.current) {
             Prism.highlightElement(codeRef.current);
         }
-    }, [code, language]);
+    }, [displayCode, language]);
 
     const handleCopy = async () => {
-        await navigator.clipboard.writeText(code);
+        await navigator.clipboard.writeText(displayCode);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
     };
@@ -82,13 +84,12 @@ export function CodeBlock({
 
             <pre className={`${showLineNumbers ? "line-numbers" : ""} !bg-[#0e0e0e] !m-0 p-5 rounded-lg overflow-x-auto shadow-inner border border-[#1a1f2f]`}>
                 <code ref={codeRef} className={`language-${language} !text-sm leading-relaxed`}>
-                    {code}
+                    {displayCode}
                 </code>
             </pre>
         </div>
     );
 }
-
 
 
 

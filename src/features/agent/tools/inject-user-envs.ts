@@ -39,7 +39,7 @@ export const createInjectUserEnvsTool = ({
   return createTool({
     name: "injectUserEnvs",
     description:
-      "Fetch selected user vault secrets server-side and merge them into a sandbox .env file without returning secret values.",
+      "Fetch selected user vault secrets server-side and merge them into the specified .env file without returning secret values. Pass the exact backend .env path; never use a frontend .env path for secrets.",
     parameters: paramsSchema,
     handler: async (params, { step: toolStep }) => {
       const parsed = paramsSchema.safeParse(params);

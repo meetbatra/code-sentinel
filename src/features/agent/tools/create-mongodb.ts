@@ -22,7 +22,7 @@ export const createMongoDbTool = ({
     return createTool({
         name: "createMongoDb",
         description:
-            "Provision a temporary MongoDB database and merge its URI into the sandbox .env file at the specified path (default: repo root) using a specified environment variable name",
+            "Provision a temporary MongoDB database and merge its URI into the specified backend .env file (default: repo root) using the exact environment variable name used by the database connection.",
         parameters: paramsSchema,
         handler: async (params, { step: toolStep }) => {
             const parsed = paramsSchema.safeParse(params);

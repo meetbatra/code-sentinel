@@ -45,6 +45,15 @@ export const createOrUpdateFilesTool = ({
             const { files } = parsed.data;
 
             try {
+                const recordedTestFiles = new Set(network?.state.data.recordedTestFiles || []);
+                const blockedFiles = files
+                    .map((file) => file.path)
+                    .filter((filePath, index, paths) => paths.indexOf(filePath) === index && recordedTestFiles.has(filePath));
+
+                if (blockedFiles.length > 0) {
+                    return `Error: these test files already have recorded results and are immutable: ${blockedFiles.join(", ")}. Do not run or update them again.`;
+                }
+
                 const updatedFiles = await toolStep?.run(
                     "createOrUpdateFiles",
                     async () => {
@@ -68,11 +77,11 @@ export const createOrUpdateFilesTool = ({
                     network.state.data.testFiles = updatedFiles;
                 }
 
-                return `Successfully created/updated ${files.length} file(s): ${files.map(f => f.path).join(", ")}`;
+                const currentFilePaths = Object.keys(network?.state.data.testFiles || updatedFiles || {});
+                return `Successfully created/updated ${files.length} file(s): ${files.map(f => f.path).join(", ")}. Current test files: ${currentFilePaths.join(", ")}`;
             } catch (error) {
                 return `Failed to create or update files: ${error instanceof Error ? error.message : String(error)}`;
             }
         },
     });
 };
-

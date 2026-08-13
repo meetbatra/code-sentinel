@@ -107,7 +107,7 @@ async function uploadScreenshotToCloudinary(
 export const createRecordTestResultTool = ({ jobId, sandboxId }: RecordTestResultOptions) => {
     return createTool({
         name: "recordTestResult",
-        description: "Record the result of a test execution. Call this after running each test file.",
+        description: "Commit the final result for a test file exactly once. You may rerun and repair a file before calling this, but never run or update it after this succeeds.",
         parameters: z.object({
             testFile: z.string().describe("Path to the test file"),
             testName: z.string().describe("Descriptive name of what was tested"),
@@ -127,10 +127,28 @@ export const createRecordTestResultTool = ({ jobId, sandboxId }: RecordTestResul
             }
 
             try {
-                return await toolStep?.run("record-test-result", async () => {
+                const result = await toolStep?.run("record-test-result", async () => {
                     const normalizedStatus = params.status.toUpperCase() as TestResultStatus;
                     const dbTestLayer: TestLayer = params.type === "full-stack" ? "FULL_STACK" : "BACKEND";
                     const isFullStack = params.type === "full-stack";
+                    const recordedTestFiles = network.state.data.recordedTestFiles || [];
+
+                    if (recordedTestFiles.includes(params.testFile)) {
+                        return `Error: ${params.testFile} already has a recorded result. Do not record, run, or update this test file again.`;
+                    }
+
+                    if (!(params.testFile in (network.state.data.testFiles || {}))) {
+                        return `Error: ${params.testFile} is not in the current test-file ledger. Create it with createOrUpdateFiles before recording a result.`;
+                    }
+
+                    const existingTest = await prisma.test.findFirst({
+                        where: { jobId, testFile: params.testFile },
+                        select: { id: true },
+                    });
+                    if (existingTest) {
+                        return `Error: ${params.testFile} already has a recorded result in this job. Do not record, run, or update this test file again.`;
+                    }
+
                     let screenshotUrl: string | undefined;
                     let screenshotUploadError: string | undefined;
                     let screenshotUploadedAt: Date | undefined;
@@ -150,7 +168,6 @@ export const createRecordTestResultTool = ({ jobId, sandboxId }: RecordTestResul
                         if (usedPaths.includes(params.screenshotPath)) {
                             return `Error: screenshotPath already used in this run (${params.screenshotPath}). Use a unique path per edge case.`;
                         }
-                        network.state.data.usedScreenshotPaths = [...usedPaths, params.screenshotPath];
                     }
 
                     if (params.screenshotPath) {
@@ -181,28 +198,6 @@ export const createRecordTestResultTool = ({ jobId, sandboxId }: RecordTestResul
                         }
                     }
 
-                    const testData = {
-                        testFile: params.testFile,
-                        testName: params.testName,
-                        featureName: params.featureName || undefined,
-                        type: params.type,
-                        status: normalizedStatus,
-                        exitCode: params.exitCode || undefined,
-                        output: params.output || undefined,
-                        screenshotUrl,
-                        steps: params.steps || undefined,
-                        networkAssertions: params.networkAssertions || undefined,
-                        uiAssertions: params.uiAssertions || undefined,
-                        executedAt: new Date().toISOString(),
-                    };
-
-                    // Update agent state
-                    if (network) {
-                        const testResults = network.state.data.testResults || [];
-                        testResults.push(testData);
-                        network.state.data.testResults = testResults;
-                    }
-
                     // Get test file content from state
                     const testFileContent = network?.state?.data?.testFiles?.[params.testFile] || "";
 
@@ -216,7 +211,7 @@ export const createRecordTestResultTool = ({ jobId, sandboxId }: RecordTestResul
                             featureName: params.featureName || null,
                             type: dbTestLayer,
                             status: normalizedStatus,
-                            exitCode: params.exitCode || null,
+                            exitCode: params.exitCode ?? null,
                             output: params.output || null,
                             screenshotUrl: screenshotUrl || null,
                             screenshotUploadedAt: screenshotUploadedAt || null,
@@ -247,10 +242,41 @@ export const createRecordTestResultTool = ({ jobId, sandboxId }: RecordTestResul
 
 
                     if (warnings.length > 0) {
-                        return `Recorded ${normalizedStatus} result for ${params.testFile} with warnings: ${warnings.join(" | ")}`;
+                        return `Recorded ${normalizedStatus} result for ${params.testFile}. This file is now immutable and must not be run or updated again. Warnings: ${warnings.join(" | ")}`;
                     }
-                    return `Recorded ${normalizedStatus} result for ${params.testFile}`;
+                    return `Recorded ${normalizedStatus} result for ${params.testFile}. This file is now immutable and must not be run or updated again.`;
                 }) || `Recorded ${params.status.toUpperCase()} result for ${params.testFile}`;
+
+                // Update agent state after the durable step completes so later agent turns can see it.
+                if (result?.startsWith("Recorded ")) {
+                    const testResults = network.state.data.testResults || [];
+                    testResults.push({
+                        testFile: params.testFile,
+                        testName: params.testName,
+                        featureName: params.featureName || undefined,
+                        type: params.type,
+                        status: params.status.toUpperCase() as TestResultStatus,
+                        exitCode: params.exitCode ?? undefined,
+                        output: params.output || undefined,
+                        screenshotUrl: undefined,
+                        steps: params.steps || undefined,
+                        networkAssertions: params.networkAssertions || undefined,
+                        uiAssertions: params.uiAssertions || undefined,
+                        executedAt: new Date().toISOString(),
+                    });
+                    network.state.data.testResults = testResults;
+                    network.state.data.recordedTestFiles = [
+                        ...(network.state.data.recordedTestFiles || []),
+                        params.testFile,
+                    ];
+
+                    if (params.screenshotPath) {
+                        const usedPaths = (network.state.data.usedScreenshotPaths || []) as string[];
+                        network.state.data.usedScreenshotPaths = [...usedPaths, params.screenshotPath];
+                    }
+                }
+
+                return result;
             } catch (error) {
                 return `Error recording test result: ${error instanceof Error ? error.message : "Unknown error"}`;
             }
